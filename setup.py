@@ -9,6 +9,7 @@ setup(
     packages=find_packages(),
     license='MIT',
     url='https://github.com/igormusic/transaction-accounts',
+    download_url='https://github.com/igormusic/transaction-accounts/archive/refs/tags/0.0.1.tar.gz',
     keywords=['TRANSACTION PROCESSING', 'LOANS', 'SAVINGS', 'ACCOUNTS', 'FINANCE', 'BANKING'],
     install_requires=[
         'python-dateutil',
