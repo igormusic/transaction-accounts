@@ -7,10 +7,19 @@ setup(
     author='Igor Music',
     author_email='igormusich@gmail.com',
     packages=find_packages(),
+    license='MIT',
+    url='https://github.com/igormusic/transaction-accounts',
+    keywords=['TRANSACTION PROCESSING', 'LOANS', 'SAVINGS', 'ACCOUNTS', 'FINANCE', 'BANKING'],
     install_requires=[
         'python-dateutil',
         'dataclasses-json'
     ],
-    entry_points={
-    }
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',  # Define that your audience are developers
+        'Topic :: Software Development :: Build Tools',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.9',
+
+    ],
 )
