@@ -13,15 +13,23 @@ class TestAccount(unittest.TestCase):
 
         account_type = config.account_types[0]
 
-        account = Account(date.today(), account_type, config)
+        account = Account(start_date=date.today(), account_type_name=account_type.name, config_version=config.version,
+                          config=config)
 
-        self.assertEqual(3, len(account.positions))
+        self.assertEqual(3, len(account.positions.keys()))
+
+        json = account.json()
+
+        account2 = Account.parse_raw(json)
+
+        self.assertEqual(account.start_date, account2.start_date)
 
     def test_eval(self):
         config = create_savings_account()
 
         account_type = config.get_account_type("savingsAccount")
-        account = Account(date(2019, 1, 1), account_type, config)
+        account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
+                          config_version=config.version, config=config)
 
         self.assertEqual(Decimal(0), account.evaluate("self.current", None))
 
@@ -36,14 +44,16 @@ class TestAccount(unittest.TestCase):
 
         # account = create_account(config, "savingsAccount", date(2019, 1, 1))
         account_type = config.get_account_type("savingsAccount")
-        account = Account(date(2019, 1, 1), account_type, config)
+        account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
+                          config_version= config.version, config=config)
 
         valuation = AccountValuation(account, account_type, config, date(2020, 1, 1))
 
         deposit_transaction_type = config.get_transaction_type("deposit")
 
         external_transactions = group_by_date([
-            ExternalTransaction(deposit_transaction_type.name, Decimal(1000), date(2019, 1, 1))])
+            ExternalTransaction(transaction_type_name=deposit_transaction_type.name,
+                                amount= Decimal(1000), value_date=date(2019, 1, 1))])
 
         valuation.forecast(date(2020, 1, 1), external_transactions)
 

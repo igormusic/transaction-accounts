@@ -1,2 +1,3 @@
-python-dateutil
-dataclasses-json
+python-dateutil~=2.8.2
+pydantic~=1.10.7
+setuptools==67.7.1

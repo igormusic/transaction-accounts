@@ -6,9 +6,8 @@ from dateutil.relativedelta import *
 from accounts.metadata import *
 
 
-class Position:
-    def __init__(self):
-        self.amount = Decimal(0)
+class Position(BaseModel):
+    amount: Decimal = Decimal(0)
 
     def apply_operation(self, operation: TransactionOperation, amount: Decimal):
         if operation == TransactionOperation.CREDIT:
@@ -24,40 +23,26 @@ class Position:
         return position
 
 
-class Transaction:
+class Transaction(BaseModel):
     amount = Decimal(0)
-
-    def __init__(self, action_date: date, value_date: date, transaction_type: str, amount: Decimal,
-                 system_generated: bool):
-        self.action_date = action_date
-        self.value_date = value_date
-        self.transaction_type = transaction_type
-        self.amount = amount
-        self.system_generated = system_generated
-
-    def display(self):
-        print("actionDate = {0}, valueDate = {1}, transactionType = {2}, amount = {3}, system_generated = {4}".format(
-            self.action_date,
-            self.value_date,
-            self.transaction_type,
-            self.amount,
-            self.system_generated))
+    action_date: date
+    value_date: date
+    transaction_type: str
+    amount: Decimal
+    system_generated: bool
 
 
-class Schedule:
-    def __init__(self, start_date: date, end_type: ScheduleEndType, frequency: ScheduleFrequency, interval: int = 0,
-                 adjustment: BusinessDayAdjustment = BusinessDayAdjustment.NO_ADJUSTMENT,
-                 end_date: date = None, number_of_repeats: int = 0):
-        self.start_date = start_date
-        self.end_type = end_type
-        self.interval = interval
-        self.frequency = frequency
-        self.adjustment = adjustment
-        self.end_date = end_date
-        self.number_of_repeats = number_of_repeats
-        self.include_dates: list[date] = []
-        self.exclude_dates: list[date] = []
-        self.cached_dates: dict[date, list[date]] = {}
+class Schedule(BaseModel):
+    start_date: date
+    end_type: ScheduleEndType
+    frequency: ScheduleFrequency
+    interval: int = 0,
+    adjustment: BusinessDayAdjustment = BusinessDayAdjustment.NO_ADJUSTMENT
+    end_date: Optional[date]
+    number_of_repeats: int = 0
+    include_dates: list[date] = []
+    exclude_dates: list[date] = []
+    cached_dates: dict[date, list[date]] = {}
 
     def __is_simple_daily_schedule(self):
         return (self.frequency == ScheduleFrequency.DAILY and
@@ -129,32 +114,37 @@ class Schedule:
         return test_date
 
 
-class ExternalTransaction:
-    def __init__(self, transaction_type_name: str, amount: Decimal, value_date: date):
-        self.transaction_type_name = transaction_type_name
-        self.amount = amount
-        self.value_date = value_date
+class ExternalTransaction(BaseModel):
+    transaction_type_name: str
+    amount: Decimal
+    value_date: date
 
 
-class Account:
-    def __init__(self, start_date: date, account_type: AccountType, config: Configuration):
-        self.start_date = start_date
-        self.account_type_name: str = account_type.name
-        self.config_version: str = config.version
-        self.positions: dict[str, Position] = {}
-        self.schedules: dict[str, Schedule] = {}
-        self.transactions: list[Transaction] = []
+class Account(BaseModel):
+    start_date: date
+    account_type_name: str
+    config_version: str
+    positions: dict[str, Position] = {}
+    schedules: dict[str, Schedule] = {}
+    transactions: list[Transaction] = []
 
-        self.__initialize_positions(account_type, config)
-        self.__initialize_schedules(account_type, config)
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+
+        if "config" in kw:
+            config: Configuration = kw["config"]
+            account_type: AccountType = config.get_account_type(self.account_type_name)
+            self.__initialize_positions(account_type, config)
+            self.__initialize_schedules(account_type, config)
 
     def __initialize_schedules(self, account_type: AccountType, config: Configuration):
         for schedule_type in account_type.schedule_types:
-            schedule = Schedule(self.evaluate(schedule_type.start_date_expression, {"config": config, "account": self}),
-                                schedule_type.end_type,
-                                schedule_type.frequency,
-                                self.evaluate(schedule_type.interval_expression, {"config": config, "account": self}),
-                                schedule_type.business_day_adjustment)
+            schedule = Schedule(
+                start_date=self.evaluate(schedule_type.start_date_expression, {"config": config, "account": self}),
+                end_type=schedule_type.end_type,
+                frequency=schedule_type.frequency,
+                interval=self.evaluate(schedule_type.interval_expression, {"config": config, "account": self}),
+                adjustment=schedule_type.business_day_adjustment)
 
             if schedule_type.end_date_expression:
                 schedule.end_date = self.evaluate(schedule_type.end_date_expression,
@@ -192,6 +182,9 @@ class Account:
             return self.positions[method_name].amount
         else:
             raise AttributeError(f'No such attribute: {method_name}')
+
+    class Config:
+        exclude = {"config"}
 
 
 def group_by_date(external_transactions):
@@ -259,7 +252,8 @@ class AccountValuation:
 
     def __create_transaction(self, transaction_type: TransactionType, value_date: date,
                              amount: Decimal, system_generated: bool):
-        transaction = Transaction(self.action_date, value_date, transaction_type.name, amount, system_generated)
+        transaction = Transaction(action_date= self.action_date, value_date=value_date, transaction_type=transaction_type.name,
+                                  amount=amount, system_generated=system_generated)
         self.account.add_transaction(transaction, transaction_type)
 
         triggered_transaction = self.configuration.get_trigger_transaction(transaction_type.name)

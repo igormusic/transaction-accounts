@@ -3,9 +3,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
-
-from dataclasses_json import dataclass_json
+from typing import List, Optional, Dict
+from pydantic import BaseModel
 
 
 class TransactionOperation(Enum):
@@ -43,30 +42,24 @@ class ScheduledTransactionTiming(Enum):
     END_OF_DAY = "end_of_day"
 
 
-@dataclass_json()
-@dataclass()
-class PositionType:
+class PositionType(BaseModel):
     name: str
     label: str
 
 
-@dataclass_json()
-@dataclass()
-class RateTier:
+class RateTier(BaseModel):
     from_amount: Decimal
     to_amount: Decimal
     rate: Decimal
 
 
-@dataclass_json()
-@dataclass()
-class RateType:
+class RateType(BaseModel):
     name: str
     label: str
-    rate_tiers: List[RateTier] = field(default_factory=list)
+    rate_tiers: List[RateTier] = []
 
     def add_tier(self, to_amount: Decimal, rate: Decimal):
-        rate_tier = RateTier(self.get_max_to_amount(), to_amount, rate)
+        rate_tier = RateTier(from_amount=self.get_max_to_amount(), to_amount=to_amount, rate=rate)
         self.rate_tiers.append(rate_tier)
 
     def get_max_to_amount(self):
@@ -109,28 +102,22 @@ class RateType:
         return fee
 
 
-@dataclass_json()
-@dataclass()
-class PositionRule:
+class PositionRule(BaseModel):
     operation: TransactionOperation
     position_type_name: str
 
 
-@dataclass_json()
-@dataclass()
-class TransactionType:
+class TransactionType(BaseModel):
     name: str
     label: str
-    position_rules: List[PositionRule] = field(default_factory=list)
+    position_rules: List[PositionRule] = []
 
     def add_position_rule(self, transaction_operation: TransactionOperation, position_type: PositionType):
-        self.position_rules.append(PositionRule(transaction_operation, position_type.name))
+        self.position_rules.append(PositionRule(operation=transaction_operation, position_type_name=position_type.name))
         return self
 
 
-@dataclass_json()
-@dataclass()
-class ScheduleType:
+class ScheduleType(BaseModel):
     name: str
     label: str
     frequency: ScheduleFrequency
@@ -138,46 +125,38 @@ class ScheduleType:
     business_day_adjustment: BusinessDayAdjustment
     interval_expression: str
     start_date_expression: str
-    end_date_expression: str = field(default=None)
-    number_of_repeats_expression: str = field(default=None)
-    include_dates_expression: str = field(default=None)
-    exclude_dates_expression: str = field(default=None)
+    end_date_expression: str = None
+    number_of_repeats_expression: str = None
+    include_dates_expression: str = None
+    exclude_dates_expression: str = None
 
 
-@dataclass_json()
-@dataclass()
-class ScheduledTransaction:
+class ScheduledTransaction(BaseModel):
     schedule_name: str
     timing: ScheduledTransactionTiming
     generated_transaction_type: str
     amount_expression: str
 
 
-@dataclass_json()
-@dataclass()
-class TriggeredTransaction:
+class TriggeredTransaction(BaseModel):
     trigger_transaction_type_name: str
     generated_transaction_type: str
     amount_expression: str
 
 
-@dataclass_json()
-@dataclass()
-class PropertyType:
+class PropertyType(BaseModel):
     name: str
     label: str
 
 
-@dataclass_json()
-@dataclass()
-class AccountType:
+class AccountType(BaseModel):
     name: str
     label: str
-    transaction_type_names: List[str] = field(default_factory=list)
-    schedule_types: List[ScheduleType] = field(default_factory=list)
-    property_types: List[PropertyType] = field(default_factory=list)
-    scheduled_transactions: List[ScheduledTransaction] = field(default_factory=list)
-    triggered_transactions: List[TriggeredTransaction] = field(default_factory=list)
+    transaction_type_names: List[str] = []
+    schedule_types: List[ScheduleType] = []
+    property_types: List[PropertyType] = []
+    scheduled_transactions: List[ScheduledTransaction] = []
+    triggered_transactions: List[TriggeredTransaction] = []
 
     def add_transaction_type(self, transaction_type: TransactionType):
         self.transaction_type_names.append(transaction_type.name)
@@ -187,51 +166,52 @@ class AccountType:
 
     def add_scheduled_transaction(self, schedule_type: ScheduleType, timing: ScheduledTransactionTiming,
                                   generated_transaction_type: TransactionType, amount_expression: str):
-        scheduled_transaction = ScheduledTransaction(schedule_type.name, timing, generated_transaction_type.name,
-                                                     amount_expression)
+        scheduled_transaction = ScheduledTransaction(schedule_name=schedule_type.name, timing=timing,
+                                                     generated_transaction_type=generated_transaction_type.name,
+                                                     amount_expression=amount_expression)
         self.scheduled_transactions.append(scheduled_transaction)
 
     def add_trigger_transaction(self, trigger_transaction_type: TransactionType,
                                 generated_transaction_type: TransactionType, amount_expression: str):
-        triggered_transaction = TriggeredTransaction(trigger_transaction_type.name, generated_transaction_type.name,
-                                                     amount_expression)
+        triggered_transaction = TriggeredTransaction(name=trigger_transaction_type.name,
+                                                     generated_transaction_type=generated_transaction_type.name,
+                                                     amount_expression=amount_expression)
         self.triggered_transactions.append(triggered_transaction)
 
 
-@dataclass_json()
-@dataclass()
-class Configuration:
+class Configuration(BaseModel):
     version: str
-    transaction_types: List[TransactionType] = field(default_factory=list)
-    position_types: List[PositionType] = field(default_factory=list)
-    account_types: List[AccountType] = field(default_factory=list)
-    rate_types: dict[str,RateType] = field(default_factory=dict)
-    triggered_transactions: List[TriggeredTransaction] = field(default_factory=list)
+    transaction_types: List[TransactionType] = []
+    position_types: List[PositionType] = []
+    account_types: List[AccountType] = []
+    rate_types: Dict[str, RateType] = {}
+    triggered_transactions: List[TriggeredTransaction] = []
 
     def add_transaction_type(self, name: str, label: str) -> TransactionType:
-        transaction_type = TransactionType(name, label)
+        transaction_type = TransactionType(name=name, label=label)
         self.transaction_types.append(transaction_type)
         return transaction_type
 
     def add_position_type(self, name: str, label: str) -> PositionType:
-        position_type = PositionType(name, label)
+        position_type = PositionType(name=name, label=label)
         self.position_types.append(position_type)
         return position_type
 
     def add_account_type(self, name: str, label: str) -> AccountType:
-        account_type = AccountType(name, label)
+        account_type = AccountType(name=name, label=label)
         self.account_types.append(account_type)
         return account_type
 
     def add_rate_type(self, name: str, label: str) -> RateType:
-        rate_type = RateType(name, label)
+        rate_type = RateType(name=name, label=label)
         self.rate_types[name] = rate_type
         return rate_type
 
     def add_trigger_transaction(self, trigger_transaction_type: TransactionType,
                                 generated_transaction_type: TransactionType, amount_expression: str):
-        trigger_transaction = TriggeredTransaction(trigger_transaction_type.name, generated_transaction_type.name,
-                                                   amount_expression)
+        trigger_transaction = TriggeredTransaction(trigger_transaction_type_name=trigger_transaction_type.name,
+                                                   generated_transaction_type=generated_transaction_type.name,
+                                                   amount_expression=amount_expression)
         self.triggered_transactions.append(trigger_transaction)
 
     def get_transaction_type(self, transaction_type_name: str) -> TransactionType:
@@ -243,8 +223,9 @@ class Configuration:
     def get_rate_type(self, rate_type_name: str):
         return next(rt for rt in self.rate_types if rt.name == rate_type_name)
 
-    def get_trigger_transaction(self, trigger_transaction_type_name: str)-> Optional[TriggeredTransaction]:
-        return next((tt for tt in self.triggered_transactions if tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
+    def get_trigger_transaction(self, trigger_transaction_type_name: str) -> Optional[TriggeredTransaction]:
+        return next((tt for tt in self.triggered_transactions if
+                     tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
 
     def __getattr__(self, method_name: str):
         # find rate type by method name

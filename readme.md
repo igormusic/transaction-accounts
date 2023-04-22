@@ -54,7 +54,7 @@ Here is a code that will create this configuration:
 
 ```python
 def create_savings_account() -> Configuration:
-    config: Configuration = Configuration("v1")
+    config: Configuration = Configuration(version="v1")
 
     current = config.add_position_type("current", "current balance")
     interest_accrued = config.add_position_type("accrued", "interest accrued")
@@ -78,14 +78,18 @@ def create_savings_account() -> Configuration:
     savings_account.add_transaction_type(capitalized)
     savings_account.add_transaction_type(withholding_txn)
 
-    accrual_schedule = ScheduleType("accrual", "Accrual Schedule", ScheduleFrequency.DAILY, ScheduleEndType.NO_END,
-                                    BusinessDayAdjustment.NO_ADJUSTMENT, "1", "account.start_date")
+    accrual_schedule = ScheduleType(name="accrual", label="Accrual Schedule", frequency=ScheduleFrequency.DAILY,
+                                    end_type=ScheduleEndType.NO_END,
+                                    business_day_adjustment=BusinessDayAdjustment.NO_ADJUSTMENT,
+                                    interval_expression="1", start_date_expression="account.start_date")
 
     savings_account.add_schedule_type(accrual_schedule)
 
-    compounding_schedule = ScheduleType("compounding", "Compounding Schedule", ScheduleFrequency.MONTHLY,
-                                        ScheduleEndType.NO_END, BusinessDayAdjustment.NO_ADJUSTMENT, "1",
-                                        "account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
+    compounding_schedule = ScheduleType(name="compounding", label="Compounding Schedule", frequency=ScheduleFrequency.MONTHLY,
+                                        end_type=ScheduleEndType.NO_END,
+                                        business_day_adjustment=BusinessDayAdjustment.NO_ADJUSTMENT,
+                                        interval_expression="1",
+                                        start_date_expression="account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
 
     savings_account.add_schedule_type(compounding_schedule)
 
@@ -111,26 +115,24 @@ Given configuration, we can create an account:
 
 ```python
 
-    config: Configuration = create_savings_account()
+        config: Configuration = create_savings_account()
 
-    account_type = config.get_account_type("savingsAccount")
-    
-    # account will start on 1st of January 2019
-    account = Account(date(2019, 1, 1), account_type, config)
-    
-    # we will create account valuation on 1st of January 2020 (action date)
-    valuation = AccountValuation(account, account_type, config, date(2020, 1, 1))
-    
-    deposit_transaction_type = config.get_transaction_type("deposit")
-    
-    # we will deposit 1000 on 1st of January 2019 (backdated transaction so that we can test accruals)
-    external_transactions = group_by_date([
-        ExternalTransaction(deposit_transaction_type.name, Decimal(1000), date(2019, 1, 1))])
-    
-    # we will forecast balances and transactions as of 1st of January 2020
-    valuation.forecast(date(2020, 1, 1), external_transactions)
-    
-    self.assertAlmostEqual(account.positions['current'].amount, Decimal(1030.41), places=1)
-    self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(30.41) * Decimal(0.2), places=1)
+        # account = create_account(config, "savingsAccount", date(2019, 1, 1))
+        account_type = config.get_account_type("savingsAccount")
+        account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
+                          config_version= config.version, config=config)
+
+        valuation = AccountValuation(account, account_type, config, date(2020, 1, 1))
+
+        deposit_transaction_type = config.get_transaction_type("deposit")
+
+        external_transactions = group_by_date([
+            ExternalTransaction(transaction_type_name=deposit_transaction_type.name,
+                                amount= Decimal(1000), value_date=date(2019, 1, 1))])
+
+        valuation.forecast(date(2020, 1, 1), external_transactions)
+
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1030.41), places=1)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(30.41) * Decimal(0.2), places=1)
 
 ```

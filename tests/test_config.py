@@ -2,7 +2,7 @@ from accounts.metadata import *
 
 
 def create_savings_account() -> Configuration:
-    config: Configuration = Configuration("v1")
+    config: Configuration = Configuration(version="v1")
 
     current = config.add_position_type("current", "current balance")
     interest_accrued = config.add_position_type("accrued", "interest accrued")
@@ -26,14 +26,18 @@ def create_savings_account() -> Configuration:
     savings_account.add_transaction_type(capitalized)
     savings_account.add_transaction_type(withholding_txn)
 
-    accrual_schedule = ScheduleType("accrual", "Accrual Schedule", ScheduleFrequency.DAILY, ScheduleEndType.NO_END,
-                                    BusinessDayAdjustment.NO_ADJUSTMENT, "1", "account.start_date")
+    accrual_schedule = ScheduleType(name="accrual", label="Accrual Schedule", frequency=ScheduleFrequency.DAILY,
+                                    end_type=ScheduleEndType.NO_END,
+                                    business_day_adjustment=BusinessDayAdjustment.NO_ADJUSTMENT,
+                                    interval_expression="1", start_date_expression="account.start_date")
 
     savings_account.add_schedule_type(accrual_schedule)
 
-    compounding_schedule = ScheduleType("compounding", "Compounding Schedule", ScheduleFrequency.MONTHLY,
-                                        ScheduleEndType.NO_END, BusinessDayAdjustment.NO_ADJUSTMENT, "1",
-                                        "account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
+    compounding_schedule = ScheduleType(name="compounding", label="Compounding Schedule", frequency=ScheduleFrequency.MONTHLY,
+                                        end_type=ScheduleEndType.NO_END,
+                                        business_day_adjustment=BusinessDayAdjustment.NO_ADJUSTMENT,
+                                        interval_expression="1",
+                                        start_date_expression="account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
 
     savings_account.add_schedule_type(compounding_schedule)
 
