@@ -15,25 +15,29 @@ You can use it to make any type of transaction account, such as a
 savings account, a credit card, or a loan.
 
 Assume we would like to create simple Savings Account that has 3 types
-of balances: 
- - current balance 
- - interest accrued 
- - withholding tax
+of balances:
+ 
+- current balance 
+- interest accrued 
+- withholding tax
 
 We would like to have 4 types of transactions: 
- - deposit 
- - interest accrued 
- - interest capitalized 
- - withholding tax
+
+- deposit 
+- interest accrued 
+- interest capitalized 
+- withholding tax
 
 We would like to have 2 types of schedules: 
- - accrual schedule 
- - compounding schedule
+
+- accrual schedule 
+- compounding schedule
 
 We would like to have interest rate with 3 tiers: 
- - 0 - 10000: 3% 
- - 10000 - 50000: 3.5% 
- - 50000+: 4%
+
+- 0 - 10000: 3% 
+- 10000 - 50000: 3.5% 
+- 50000+: 4%
 
 Deposit transaction will increase current balance, and it will be used
 to deposit money to the account. This transaction will be externally
@@ -170,8 +174,8 @@ Given configuration, we can create an account:
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',  # Define that your audience are developers
         'Topic :: Software Development :: Build Tools',
+        'TOPIC :: OFFICE/BUSINESS :: FINANCIAL :: ACCOUNTING',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.9',
-
     ],
 )
