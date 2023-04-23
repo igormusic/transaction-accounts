@@ -36,7 +36,7 @@ class TestAccount(unittest.TestCase):
         account_type = create_savings_account()
 
         account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
-                          account_type=account_type)
+                          account_type=account_type, properties={"monthlyFee": Decimal(1.00)})
 
         valuation = AccountValuation(account, account_type, date(2020, 1, 1))
 
@@ -48,9 +48,9 @@ class TestAccount(unittest.TestCase):
 
         valuation.forecast(date(2020, 1, 1), external_transactions)
 
-        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1030.41), places=1)
-        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(30.41) * Decimal(0.2), places=1)
-        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.0821'), places=1)
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.04955), places=4)
+        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.08219'), places=4)
 
 
 if __name__ == '__main__':

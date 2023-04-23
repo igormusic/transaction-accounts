@@ -5,24 +5,30 @@ This library provides basic functionality for working with transaction accounts.
 You can use it to make any type of transaction account, such as a savings account, a credit card, or a loan.
 
 Assume we would like to create simple Savings Account that has 3 types of balances:
+
 - current balance
 - interest accrued
 - withholding tax
 
 We would like to have 4 types of transactions:
+
 - deposit
 - interest accrued
 - interest capitalized
 - withholding tax
 
 We would like to have 2 types of schedules:
+
 - accrual schedule
 - compounding schedule
 
 We would like to have interest rate with 3 tiers:
+
 - 0 - 10000: 3%
 - 10000 - 50000: 3.5%
 - 50000+: 4%
+
+We would like to have monthly fee of 1.00 charged at the end of each month to the account before interest is accrued.
 
 Deposit transaction will increase current balance, and it will be used to deposit money to the account. 
 This transaction will be externally created and posted to the account.
@@ -43,12 +49,17 @@ We will use interest rate to calculate interest.
 
 We will use trigger transaction to calculate withholding tax.
 
+We will use monthly fee property to specify monthly fee. This amount will be charged at the end of each month.
+
 Note that this framework is not limited to this configuration, and it can be used to create any type of transaction account.
 
 You can define custom calculations when calculating either schedules or transactions. In this context you can use any of the following variables:
+
 - account: Account
 - transaction: Transaction
 - config: Configuration
+
+Example of this calculation can be found in [Savings account](./tests/Savings Account.xlsx) workbook.
 
 Here is a code that will create this configuration:
 
@@ -60,8 +71,13 @@ def create_savings_account() -> AccountType:
     interest_accrued = acc.add_position_type("accrued", "interest accrued")
     withholding = acc.add_position_type("withholding", "withholding tax")
 
-    acc.add_transaction_type("deposit", "Deposit")\
+    montly_fee = acc.add_property_type("monthlyFee", "Monthly Fee", DataType.DECIMAL, True)
+
+    acc.add_transaction_type("deposit", "Deposit") \
         .add_position_rule(TransactionOperation.CREDIT, current)
+
+    fee_tt = acc.add_transaction_type("fee", "Fee") \
+        .add_position_rule(TransactionOperation.DEBIT, current)
 
     interest_accrued_tt = acc.add_transaction_type("interestAccrued", "Interest Accrued") \
         .add_position_rule(TransactionOperation.CREDIT, interest_accrued)
@@ -89,6 +105,10 @@ def create_savings_account() -> AccountType:
 
     acc.add_schedule_type(compounding_schedule)
 
+    acc.add_scheduled_transaction(compounding_schedule, ScheduledTransactionTiming.END_OF_DAY,
+                                  fee_tt,
+                                  "account.monthlyFee")
+
     acc.add_scheduled_transaction(accrual_schedule, ScheduledTransactionTiming.END_OF_DAY,
                                   interest_accrued_tt,
                                   "account.current * accountType.interest.get_rate(account.current) / Decimal(365)")
@@ -115,7 +135,7 @@ Given configuration, we can create an account:
         account_type = create_savings_account()
 
         account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
-                          account_type=account_type)
+                          account_type=account_type, properties={"monthlyFee": Decimal(1.00)})
 
         valuation = AccountValuation(account, account_type, date(2020, 1, 1))
 
@@ -127,7 +147,7 @@ Given configuration, we can create an account:
 
         valuation.forecast(date(2020, 1, 1), external_transactions)
 
-        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1030.41), places=1)
-        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(30.41) * Decimal(0.2), places=1)
-        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.0821'), places=1)
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.04955), places=4)
+        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.08219'), places=4)
 ```

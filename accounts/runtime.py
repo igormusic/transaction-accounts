@@ -124,6 +124,7 @@ class Account(BaseModel):
     start_date: date
     account_type_name: str
     positions: dict[str, Position] = {}
+    properties: dict[str, Any] = {}
     schedules: dict[str, Schedule] = {}
     transactions: list[Transaction] = []
 
@@ -176,6 +177,8 @@ class Account(BaseModel):
     def __getattr__(self, method_name):
         if method_name in self.positions:
             return self.positions[method_name].amount
+        if method_name in self.properties:
+            return self.properties[method_name]
         else:
             raise AttributeError(f'No such attribute: {method_name}')
 

@@ -2,99 +2,93 @@ from setuptools import setup, find_packages
 
 setup(
     name='transaction-accounts',
-    version='0.0.5',
+    version='0.0.6',
     description='Create configuration for transactional accounts and implement account runtime',
     long_description='''
 Transaction Accounts
 ====================
 
-This library provides basic functionality for working with transaction
-accounts.
+This library provides basic functionality for working with transaction accounts.
 
-You can use it to make any type of transaction account, such as a
-savings account, a credit card, or a loan.
+You can use it to make any type of transaction account, such as a savings account, a credit card, or a loan.
 
-Assume we would like to create simple Savings Account that has 3 types
-of balances:
- 
-- current balance 
-- interest accrued 
+Assume we would like to create simple Savings Account that has 3 types of balances:
+
+- current balance
+- interest accrued
 - withholding tax
 
-We would like to have 4 types of transactions: 
+We would like to have 4 types of transactions:
 
-- deposit 
-- interest accrued 
-- interest capitalized 
+- deposit
+- interest accrued
+- interest capitalized
 - withholding tax
 
-We would like to have 2 types of schedules: 
+We would like to have 2 types of schedules:
 
-- accrual schedule 
+- accrual schedule
 - compounding schedule
 
-We would like to have interest rate with 3 tiers: 
+We would like to have interest rate with 3 tiers:
 
-- 0 - 10000: 3% 
-- 10000 - 50000: 3.5% 
+- 0 - 10000: 3%
+- 10000 - 50000: 3.5%
 - 50000+: 4%
 
-Deposit transaction will increase current balance, and it will be used
-to deposit money to the account. This transaction will be externally
-created and posted to the account.
+We would like to have monthly fee of 1.00 charged at the end of each month to the account before interest is accrued.
 
-Interest accrued transaction will increase interest accrued balance, and
-it will be used to accrue interest on the account.
+Deposit transaction will increase current balance, and it will be used to deposit money to the account. 
+This transaction will be externally created and posted to the account.
 
-Interest will be accrued daily, and it will be calculated based on
-current balance and interest rate.
+Interest accrued transaction will increase interest accrued balance, and it will be used to accrue interest on the account.
 
-Interest capitalized transaction will increase current balance and
-decrease interest accrued balance. This transaction will be internally
-created and posted to the account at the end of each month.
+Interest will be accrued daily, and it will be calculated based on current balance and interest rate.
 
-Withholding tax transaction will decrease withholding tax balance, and
-it will be used to pay withholding tax on the account. It will be
-calculated as 20% of interest capitalized transaction.
+Interest capitalized transaction will increase current balance and decrease interest accrued balance.
+This transaction will be internally created and posted to the account at the end of each month.
 
-We will use accrual schedule to accrue interest daily, and we will use
-compounding schedule to capitalize interest at the end of each month.
+Withholding tax transaction will decrease withholding tax balance, and it will be used to pay withholding tax on the account. 
+It will be calculated as 20% of interest capitalized transaction.
+
+We will use accrual schedule to accrue interest daily, and we will use compounding schedule to capitalize interest at the end of each month.
 
 We will use interest rate to calculate interest.
 
 We will use trigger transaction to calculate withholding tax.
 
-Note that this framework is not limited to this configuration, and it
-can be used to create any type of transaction account.
+We will use monthly fee property to specify monthly fee. This amount will be charged at the end of each month.
 
-You can define custom calculations when calculating either schedules or
-transactions. In this context you can use any of the following
-variables: - account: Account - transaction: Transaction - config:
-Configuration
+Note that this framework is not limited to this configuration, and it can be used to create any type of transaction account.
+
+You can define custom calculations when calculating either schedules or transactions. In this context you can use any of the following variables:
+
+- account: Account
+- transaction: Transaction
+- config: Configuration
 
 Here is a code that will create this configuration:
 
 .. code:: python
 
- def create_savings_account() -> AccountType:
+def create_savings_account() -> AccountType:
     acc = AccountType(name="savingsAccount", label="Savings Account")
 
     current = acc.add_position_type("current", "current balance")
     interest_accrued = acc.add_position_type("accrued", "interest accrued")
     withholding = acc.add_position_type("withholding", "withholding tax")
 
-    acc.add_transaction_type("deposit", "Deposit")\
-        .add_position_rule(TransactionOperation.CREDIT, current)
+    montly_fee = acc.add_property_type("monthlyFee", "Monthly Fee", DataType.DECIMAL, True)
 
-    interest_accrued_tt = acc.add_transaction_type("interestAccrued", "Interest Accrued") \
-        .add_position_rule(TransactionOperation.CREDIT, interest_accrued)
+    acc.add_transaction_type("deposit", "Deposit").add_position_rule(TransactionOperation.CREDIT, current)
 
-    capitalized_tt = acc.add_transaction_type("capitalized", "Interest Capitalized") \
-        .add_position_rule(TransactionOperation.CREDIT, current) \
-        .add_position_rule(TransactionOperation.DEBIT, interest_accrued)
+    fee_tt = acc.add_transaction_type("fee", "Fee").add_position_rule(TransactionOperation.DEBIT, current)
 
-    withholding_tt = acc.add_transaction_type("withholdingTax", "Withholding Tax") \
-        .add_position_rule(TransactionOperation.CREDIT, withholding)
+    interest_accrued_tt = acc.add_transaction_type("interestAccrued", "Interest Accrued").add_position_rule(TransactionOperation.CREDIT, interest_accrued)
+
+    capitalized_tt = acc.add_transaction_type("capitalized", "Interest Capitalized").add_position_rule(TransactionOperation.CREDIT, current).add_position_rule(TransactionOperation.DEBIT, interest_accrued)
+
+    withholding_tt = acc.add_transaction_type("withholdingTax", "Withholding Tax").add_position_rule(TransactionOperation.CREDIT, withholding)
 
     accrual_schedule = ScheduleType(name="accrual", label="Accrual Schedule", frequency=ScheduleFrequency.DAILY,
                                     end_type=ScheduleEndType.NO_END,
@@ -111,6 +105,10 @@ Here is a code that will create this configuration:
                                         start_date_expression="account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
 
     acc.add_schedule_type(compounding_schedule)
+
+    acc.add_scheduled_transaction(compounding_schedule, ScheduledTransactionTiming.END_OF_DAY,
+                                  fee_tt,
+                                  "account.monthlyFee")
 
     acc.add_scheduled_transaction(accrual_schedule, ScheduledTransactionTiming.END_OF_DAY,
                                   interest_accrued_tt,
@@ -139,7 +137,7 @@ Given configuration, we can create an account:
         account_type = create_savings_account()
 
         account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
-                          account_type=account_type)
+                          account_type=account_type, properties={"monthlyFee": Decimal(1.00)})
 
         valuation = AccountValuation(account, account_type, date(2020, 1, 1))
 
@@ -151,9 +149,9 @@ Given configuration, we can create an account:
 
         valuation.forecast(date(2020, 1, 1), external_transactions)
 
-        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1030.41), places=1)
-        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(30.41) * Decimal(0.2), places=1)
-        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.0821'), places=1)
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.04955), places=4)
+        self.assertAlmostEqual(account.transactions[1].amount, Decimal('0.08219'), places=4)
     
     ''',
     author='Igor Music',
@@ -161,14 +159,14 @@ Given configuration, we can create an account:
     packages=find_packages(),
     license='MIT',
     url='https://github.com/igormusic/transaction-accounts',
-    download_url='https://github.com/igormusic/transaction-accounts/archive/refs/tags/0.0.4.tar.gz',
+    download_url='https://github.com/igormusic/transaction-accounts/archive/refs/tags/0.0.6.tar.gz',
     keywords=['TRANSACTION PROCESSING', 'LOANS', 'SAVINGS', 'ACCOUNTS', 'FINANCE', 'BANKING'],
     install_requires=[
         'python-dateutil',
         'pydantic'
     ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',  # Define that your audience are developers
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',

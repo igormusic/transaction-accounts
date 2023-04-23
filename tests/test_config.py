@@ -8,8 +8,13 @@ def create_savings_account() -> AccountType:
     interest_accrued = acc.add_position_type("accrued", "interest accrued")
     withholding = acc.add_position_type("withholding", "withholding tax")
 
-    acc.add_transaction_type("deposit", "Deposit")\
+    montly_fee = acc.add_property_type("monthlyFee", "Monthly Fee", DataType.DECIMAL, True)
+
+    acc.add_transaction_type("deposit", "Deposit") \
         .add_position_rule(TransactionOperation.CREDIT, current)
+
+    fee_tt = acc.add_transaction_type("fee", "Fee") \
+        .add_position_rule(TransactionOperation.DEBIT, current)
 
     interest_accrued_tt = acc.add_transaction_type("interestAccrued", "Interest Accrued") \
         .add_position_rule(TransactionOperation.CREDIT, interest_accrued)
@@ -36,6 +41,10 @@ def create_savings_account() -> AccountType:
                                         start_date_expression="account.start_date + relativedelta(month=+1) + relativedelta(days=-1)")
 
     acc.add_schedule_type(compounding_schedule)
+
+    acc.add_scheduled_transaction(compounding_schedule, ScheduledTransactionTiming.END_OF_DAY,
+                                  fee_tt,
+                                  "account.monthlyFee")
 
     acc.add_scheduled_transaction(accrual_schedule, ScheduledTransactionTiming.END_OF_DAY,
                                   interest_accrued_tt,

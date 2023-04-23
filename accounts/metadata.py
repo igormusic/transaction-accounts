@@ -14,7 +14,7 @@ class TransactionOperation(Enum):
 
 
 class DataType(Enum):
-    NUMBER = 'number'
+    DECIMAL = 'decimal'
     STRING = 'string'
     BOOLEAN = 'boolean'
 
@@ -147,6 +147,8 @@ class TriggeredTransaction(BaseModel):
 class PropertyType(BaseModel):
     name: str
     label: str
+    data_type: DataType
+    required: bool = True
 
 
 class AccountType(BaseModel):
@@ -160,6 +162,11 @@ class AccountType(BaseModel):
     property_types: List[PropertyType] = []
     scheduled_transactions: List[ScheduledTransaction] = []
     triggered_transactions: List[TriggeredTransaction] = []
+
+    def add_property_type(self, name: str, label: str, data_type: DataType, required: bool = True) -> PropertyType:
+        property_type = PropertyType(name=name, label=label, data_type=data_type.value, required=required)
+        self.property_types.append(property_type)
+        return property_type
 
     def add_transaction_type(self, name: str, label: str) -> TransactionType:
         transaction_type = TransactionType(name=name, label=label)
@@ -183,6 +190,16 @@ class AccountType(BaseModel):
                                                    amount_expression=amount_expression)
         self.triggered_transactions.append(trigger_transaction)
 
+    def add_schedule_type(self, schedule_type: ScheduleType):
+        self.schedule_types.append(schedule_type)
+
+    def add_scheduled_transaction(self, schedule_type: ScheduleType, timing: ScheduledTransactionTiming,
+                                  generated_transaction_type: TransactionType, amount_expression: str):
+        scheduled_transaction = ScheduledTransaction(schedule_name=schedule_type.name, timing=timing,
+                                                     generated_transaction_type=generated_transaction_type.name,
+                                                     amount_expression=amount_expression)
+        self.scheduled_transactions.append(scheduled_transaction)
+
     def get_transaction_type(self, transaction_type_name: str) -> TransactionType:
         return next(tt for tt in self.transaction_types if tt.name == transaction_type_name)
 
@@ -193,15 +210,7 @@ class AccountType(BaseModel):
         return next((tt for tt in self.triggered_transactions if
                      tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
 
-    def add_schedule_type(self, schedule_type: ScheduleType):
-        self.schedule_types.append(schedule_type)
 
-    def add_scheduled_transaction(self, schedule_type: ScheduleType, timing: ScheduledTransactionTiming,
-                                  generated_transaction_type: TransactionType, amount_expression: str):
-        scheduled_transaction = ScheduledTransaction(schedule_name=schedule_type.name, timing=timing,
-                                                     generated_transaction_type=generated_transaction_type.name,
-                                                     amount_expression=amount_expression)
-        self.scheduled_transactions.append(scheduled_transaction)
 
     def __getattr__(self, method_name):
         if method_name in self.rate_types:
