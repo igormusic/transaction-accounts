@@ -1,9 +1,8 @@
 from datetime import timedelta
-from typing import Mapping, Any
-
+from typing import Mapping, Any, List
 from dateutil.relativedelta import *
-
 from accounts.metadata import *
+from itertools import groupby
 
 
 class Position(BaseModel):
@@ -30,6 +29,13 @@ class Transaction(BaseModel):
     transaction_type: str
     amount: Decimal
     system_generated: bool
+
+    def to_external_transaction(self):
+        return ExternalTransaction(
+            transaction_type_name=self.transaction_type,
+            amount=self.amount,
+            value_date=self.value_date
+        )
 
 
 class Schedule(BaseModel):
@@ -138,15 +144,17 @@ class Account(BaseModel):
     def __initialize_schedules(self, account_type: AccountType):
         for schedule_type in account_type.schedule_types:
             schedule = Schedule(
-                start_date=self.evaluate(schedule_type.start_date_expression, {"accountType": account_type, "account": self}),
+                start_date=self.evaluate(schedule_type.start_date_expression,
+                                         {"accountType": account_type, "account": self}),
                 end_type=schedule_type.end_type,
                 frequency=schedule_type.frequency,
-                interval=self.evaluate(schedule_type.interval_expression, {"accountType": account_type, "account": self}),
+                interval=self.evaluate(schedule_type.interval_expression,
+                                       {"accountType": account_type, "account": self}),
                 adjustment=schedule_type.business_day_adjustment)
 
             if schedule_type.end_date_expression:
                 schedule.end_date = self.evaluate(schedule_type.end_date_expression,
-                                                  {"accountType": account_type,  "account": self})
+                                                  {"accountType": account_type, "account": self})
 
             if schedule_type.number_of_repeats_expression:
                 schedule.number_of_repeats = self.evaluate(schedule_type.number_of_repeats_expression)
@@ -186,16 +194,62 @@ class Account(BaseModel):
         exclude = {"config"}
 
 
-def group_by_date(external_transactions):
-    grouped = {}
+def group_by_date(external_transactions: List[ExternalTransaction]) -> Dict[date, List[ExternalTransaction]]:
+    keyfunc = lambda x: x.value_date
 
-    for external_transaction in external_transactions:
-        if external_transaction.value_date not in grouped:
-            grouped[external_transaction.value_date] = [external_transaction]
-        else:
-            grouped[external_transaction.value_date].append(external_transaction)
+    groups = groupby(sorted(external_transactions, key=keyfunc), keyfunc)  # Sort the list by the keys and group by them
 
-    return grouped
+    return {key: list(group) for key, group in groups}
+
+
+class TransactionDifference(BaseModel):
+    amount = Decimal(0)
+    value_date: date
+    transaction_type: str
+    amount: Decimal
+    original: List[Transaction] = []
+    new: List[Transaction] = []
+
+
+def valuation_difference(original: List[Transaction], new: List[Transaction]) -> Dict[
+    date, list[TransactionDifference]]:
+    keyfunc = lambda x: (x.value_date, x.transaction_type)
+
+    original_grouped = {key: list(group)
+                        for key, group
+                        in groupby(
+            sorted(original, key=keyfunc), keyfunc)}
+
+    new_grouped = {key: list(group)
+                   for key, group
+                   in groupby(
+            sorted(new, key=keyfunc), keyfunc)}
+
+    difference_list = list(get_difference(new_grouped, original_grouped))
+
+    return {key: list(group)
+            for key, group
+            in groupby(
+                sorted(difference_list, key=lambda x: x.value_date),
+                lambda x: x.value_date)}
+
+
+def get_difference(new_grouped, original_grouped):
+    # Well done Chat GPT 4!
+    for value_date, transaction_type in set(original_grouped.keys()).union(set(new_grouped.keys())):
+        original_transactions = original_grouped.get((value_date, transaction_type), [])
+        new_transactions = new_grouped.get((value_date, transaction_type), [])
+
+        original_amount = sum([t.amount for t in original_transactions])
+        new_amount = sum([t.amount for t in new_transactions])
+
+        if original_amount != new_amount:
+            yield TransactionDifference(
+                value_date=value_date,
+                transaction_type=transaction_type,
+                amount=new_amount - original_amount,
+                original=original_transactions,
+                new=new_transactions)
 
 
 class AccountValuation:
@@ -240,7 +294,8 @@ class AccountValuation:
     def __create_calculated_transaction(self, value_date: date, transaction_type: TransactionType,
                                         amount_expression: str):
         try:
-            amount = self.account.evaluate(amount_expression, {"accountType": self.account_type, "account": self.account})
+            amount = self.account.evaluate(amount_expression,
+                                           {"accountType": self.account_type, "account": self.account})
         except Exception as e:
 
             raise Exception(f'Error evaluating expression: {amount_expression} {e.args}') from e
@@ -250,7 +305,8 @@ class AccountValuation:
 
     def __create_transaction(self, transaction_type: TransactionType, value_date: date,
                              amount: Decimal, system_generated: bool):
-        transaction = Transaction(action_date= self.action_date, value_date=value_date, transaction_type=transaction_type.name,
+        transaction = Transaction(action_date=self.action_date, value_date=value_date,
+                                  transaction_type=transaction_type.name,
                                   amount=amount, system_generated=system_generated)
         self.account.add_transaction(transaction, transaction_type)
 
@@ -260,7 +316,8 @@ class AccountValuation:
             trigger_amount = self.account.evaluate(triggered_transaction.amount_expression,
                                                    {"transaction": transaction, "accountType": self.account_type,
                                                     "account": self.account})
-            generated_transaction_type = self.account_type.get_transaction_type(triggered_transaction.generated_transaction_type)
+            generated_transaction_type = self.account_type.get_transaction_type(
+                triggered_transaction.generated_transaction_type)
             self.__create_transaction(generated_transaction_type, value_date, trigger_amount, True)
 
     def end_of_day(self, value_date):

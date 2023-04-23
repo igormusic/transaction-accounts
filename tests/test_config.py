@@ -8,7 +8,8 @@ def create_savings_account() -> AccountType:
     interest_accrued = acc.add_position_type("accrued", "interest accrued")
     withholding = acc.add_position_type("withholding", "withholding tax")
 
-    montly_fee = acc.add_property_type("monthlyFee", "Monthly Fee", DataType.DECIMAL, True)
+    acc.add_property_type("monthlyFee", "Monthly Fee", DataType.DECIMAL, True)
+    acc.add_property_type("withholdingTax", "Withholding Tax Rate", DataType.DECIMAL, True)
 
     acc.add_transaction_type("deposit", "Deposit") \
         .add_position_rule(TransactionOperation.CREDIT, current)
@@ -59,6 +60,6 @@ def create_savings_account() -> AccountType:
     interest_rate.add_tier(Decimal(100000), Decimal(0.035))
     interest_rate.add_tier(Decimal(50000), Decimal(0.04))
 
-    acc.add_trigger_transaction(capitalized_tt, withholding_tt, "transaction.amount * Decimal(0.2)")
+    acc.add_trigger_transaction(capitalized_tt, withholding_tt, "transaction.amount * account.withholdingTax")
 
     return acc
