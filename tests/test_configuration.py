@@ -6,15 +6,15 @@ from tests.test_config import create_savings_account
 
 class TestConfiguration(unittest.TestCase):
     def test_serialize(self):
-        config = create_savings_account()
+        account_type = create_savings_account()
 
         # serialize config to text using Pydantic
 
-        text = config.json()
+        text = account_type.json()
 
-        config2 = Configuration.parse_raw(text)
+        account_type2 = AccountType.parse_raw(text)
 
-        text2 = config2.json()
+        text2 = account_type2.json()
 
         self.assertEqual(text, text2)
 

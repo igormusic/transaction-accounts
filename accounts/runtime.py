@@ -123,41 +123,37 @@ class ExternalTransaction(BaseModel):
 class Account(BaseModel):
     start_date: date
     account_type_name: str
-    config_version: str
     positions: dict[str, Position] = {}
     schedules: dict[str, Schedule] = {}
     transactions: list[Transaction] = []
 
-    def __init__(self, *a, **kw):
-        super().__init__(*a, **kw)
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        if "account_type" in kw:
+            account_type: AccountType = kw["account_type"]
+            self.__initialize_positions(account_type)
+            self.__initialize_schedules(account_type)
 
-        if "config" in kw:
-            config: Configuration = kw["config"]
-            account_type: AccountType = config.get_account_type(self.account_type_name)
-            self.__initialize_positions(account_type, config)
-            self.__initialize_schedules(account_type, config)
-
-    def __initialize_schedules(self, account_type: AccountType, config: Configuration):
+    def __initialize_schedules(self, account_type: AccountType):
         for schedule_type in account_type.schedule_types:
             schedule = Schedule(
-                start_date=self.evaluate(schedule_type.start_date_expression, {"config": config, "account": self}),
+                start_date=self.evaluate(schedule_type.start_date_expression, {"accountType": account_type, "account": self}),
                 end_type=schedule_type.end_type,
                 frequency=schedule_type.frequency,
-                interval=self.evaluate(schedule_type.interval_expression, {"config": config, "account": self}),
+                interval=self.evaluate(schedule_type.interval_expression, {"accountType": account_type, "account": self}),
                 adjustment=schedule_type.business_day_adjustment)
 
             if schedule_type.end_date_expression:
                 schedule.end_date = self.evaluate(schedule_type.end_date_expression,
-                                                  {"config": config, "account": self})
+                                                  {"accountType": account_type,  "account": self})
 
             if schedule_type.number_of_repeats_expression:
                 schedule.number_of_repeats = self.evaluate(schedule_type.number_of_repeats_expression)
 
             self.schedules[schedule_type.name] = schedule
 
-    def __initialize_positions(self, account_type, config):
-        for transaction_type_name in account_type.transaction_type_names:
-            transaction_type = config.get_transaction_type(transaction_type_name)
+    def __initialize_positions(self, account_type: AccountType):
+        for transaction_type in account_type.transaction_types:
             for rule in transaction_type.position_rules:
                 if rule.position_type_name not in self.positions:
                     self.positions[rule.position_type_name] = Position()
@@ -200,10 +196,9 @@ def group_by_date(external_transactions):
 
 
 class AccountValuation:
-    def __init__(self, account: Account, account_type: AccountType, configuration: Configuration, action_date: date):
+    def __init__(self, account: Account, account_type: AccountType, action_date: date):
         self.account = account
         self.account_type = account_type
-        self.configuration = configuration
         self.action_date = action_date
 
     def forecast(self, to_value_date: date, external_transactions):
@@ -223,7 +218,7 @@ class AccountValuation:
     def process_external_transactions(self, value_date: date, external_transactions):
         if value_date in external_transactions:
             for external_transaction in external_transactions[value_date]:
-                transaction_type = self.configuration.get_transaction_type(external_transaction.transaction_type_name)
+                transaction_type = self.account_type.get_transaction_type(external_transaction.transaction_type_name)
                 self.__create_transaction(transaction_type, value_date, external_transaction.amount, False)
 
     def start_of_day(self, value_date):
@@ -235,14 +230,14 @@ class AccountValuation:
         schedule = self.account.schedules[scheduled_transaction.schedule_name]
 
         if schedule.is_due(value_date):
-            transaction_type = self.configuration.get_transaction_type(scheduled_transaction.generated_transaction_type)
+            transaction_type = self.account_type.get_transaction_type(scheduled_transaction.generated_transaction_type)
 
             self.__create_calculated_transaction(value_date, transaction_type, scheduled_transaction.amount_expression)
 
     def __create_calculated_transaction(self, value_date: date, transaction_type: TransactionType,
                                         amount_expression: str):
         try:
-            amount = self.account.evaluate(amount_expression, {"config": self.configuration, "account": self.account})
+            amount = self.account.evaluate(amount_expression, {"accountType": self.account_type, "account": self.account})
         except Exception as e:
 
             raise Exception(f'Error evaluating expression: {amount_expression} {e.args}') from e
@@ -256,15 +251,13 @@ class AccountValuation:
                                   amount=amount, system_generated=system_generated)
         self.account.add_transaction(transaction, transaction_type)
 
-        triggered_transaction = self.configuration.get_trigger_transaction(transaction_type.name)
+        triggered_transaction = self.account_type.get_trigger_transaction(transaction_type.name)
 
         if triggered_transaction:
             trigger_amount = self.account.evaluate(triggered_transaction.amount_expression,
-                                                   {"transaction": transaction,
-                                                    "config": self.configuration,
+                                                   {"transaction": transaction, "accountType": self.account_type,
                                                     "account": self.account})
-            generated_transaction_type = self.configuration \
-                .get_transaction_type(triggered_transaction.generated_transaction_type)
+            generated_transaction_type = self.account_type.get_transaction_type(triggered_transaction.generated_transaction_type)
             self.__create_transaction(generated_transaction_type, value_date, trigger_amount, True)
 
     def end_of_day(self, value_date):

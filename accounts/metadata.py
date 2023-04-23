@@ -152,39 +152,13 @@ class PropertyType(BaseModel):
 class AccountType(BaseModel):
     name: str
     label: str
-    transaction_type_names: List[str] = []
+    transaction_types: List[TransactionType] = []
+    position_types: List[PositionType] = []
+    rate_types: Dict[str, RateType] = {}
+    triggered_transactions: List[TriggeredTransaction] = []
     schedule_types: List[ScheduleType] = []
     property_types: List[PropertyType] = []
     scheduled_transactions: List[ScheduledTransaction] = []
-    triggered_transactions: List[TriggeredTransaction] = []
-
-    def add_transaction_type(self, transaction_type: TransactionType):
-        self.transaction_type_names.append(transaction_type.name)
-
-    def add_schedule_type(self, schedule_type: ScheduleType):
-        self.schedule_types.append(schedule_type)
-
-    def add_scheduled_transaction(self, schedule_type: ScheduleType, timing: ScheduledTransactionTiming,
-                                  generated_transaction_type: TransactionType, amount_expression: str):
-        scheduled_transaction = ScheduledTransaction(schedule_name=schedule_type.name, timing=timing,
-                                                     generated_transaction_type=generated_transaction_type.name,
-                                                     amount_expression=amount_expression)
-        self.scheduled_transactions.append(scheduled_transaction)
-
-    def add_trigger_transaction(self, trigger_transaction_type: TransactionType,
-                                generated_transaction_type: TransactionType, amount_expression: str):
-        triggered_transaction = TriggeredTransaction(name=trigger_transaction_type.name,
-                                                     generated_transaction_type=generated_transaction_type.name,
-                                                     amount_expression=amount_expression)
-        self.triggered_transactions.append(triggered_transaction)
-
-
-class Configuration(BaseModel):
-    version: str
-    transaction_types: List[TransactionType] = []
-    position_types: List[PositionType] = []
-    account_types: List[AccountType] = []
-    rate_types: Dict[str, RateType] = {}
     triggered_transactions: List[TriggeredTransaction] = []
 
     def add_transaction_type(self, name: str, label: str) -> TransactionType:
@@ -196,11 +170,6 @@ class Configuration(BaseModel):
         position_type = PositionType(name=name, label=label)
         self.position_types.append(position_type)
         return position_type
-
-    def add_account_type(self, name: str, label: str) -> AccountType:
-        account_type = AccountType(name=name, label=label)
-        self.account_types.append(account_type)
-        return account_type
 
     def add_rate_type(self, name: str, label: str) -> RateType:
         rate_type = RateType(name=name, label=label)
@@ -217,9 +186,6 @@ class Configuration(BaseModel):
     def get_transaction_type(self, transaction_type_name: str) -> TransactionType:
         return next(tt for tt in self.transaction_types if tt.name == transaction_type_name)
 
-    def get_account_type(self, account_type_name: str):
-        return next(at for at in self.account_types if at.name == account_type_name)
-
     def get_rate_type(self, rate_type_name: str):
         return next(rt for rt in self.rate_types if rt.name == rate_type_name)
 
@@ -227,10 +193,21 @@ class Configuration(BaseModel):
         return next((tt for tt in self.triggered_transactions if
                      tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
 
-    def __getattr__(self, method_name: str):
-        # find rate type by method name
+    def add_schedule_type(self, schedule_type: ScheduleType):
+        self.schedule_types.append(schedule_type)
 
+    def add_scheduled_transaction(self, schedule_type: ScheduleType, timing: ScheduledTransactionTiming,
+                                  generated_transaction_type: TransactionType, amount_expression: str):
+        scheduled_transaction = ScheduledTransaction(schedule_name=schedule_type.name, timing=timing,
+                                                     generated_transaction_type=generated_transaction_type.name,
+                                                     amount_expression=amount_expression)
+        self.scheduled_transactions.append(scheduled_transaction)
+
+    def __getattr__(self, method_name):
         if method_name in self.rate_types:
             return self.rate_types[method_name]
         else:
             raise AttributeError(f'No such attribute: {method_name}')
+
+
+
