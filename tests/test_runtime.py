@@ -17,6 +17,27 @@ def evaluate_account(account_type: AccountType, monthly_fee: Decimal, deposit: D
     external_transactions = group_by_date([
         ExternalTransaction(transaction_type_name=deposit_transaction_type.name,
                             amount=deposit, value_date=date(2019, 1, 1))])
+
+    valuation.forecast(date(2020, 1, 1), external_transactions)
+    return account
+
+
+def evaluate_account_with_withholding_tax_change(account_type: AccountType, monthly_fee: Decimal, deposit: Decimal,
+                                                 withholding_tax1: Decimal, withholding_tax2: Decimal,
+                                                 tax_change_date: date) -> Account:
+    start_date = date(2019, 1, 1)
+    account = Account(start_date=start_date, account_type_name=account_type.name,
+                      account_type=account_type,
+                      properties={"monthlyFee": PropertyValue(value={start_date: monthly_fee}),
+                                  "withholdingTax": PropertyValue(value={start_date: withholding_tax1,
+                                                                         tax_change_date: withholding_tax2})})
+
+    valuation = AccountValuation(account, account_type, date(2020, 1, 1))
+    deposit_transaction_type = account_type.get_transaction_type("deposit")
+    external_transactions = group_by_date([
+        ExternalTransaction(transaction_type_name=deposit_transaction_type.name,
+                            amount=deposit, value_date=date(2019, 1, 1))])
+
     valuation.forecast(date(2020, 1, 1), external_transactions)
     return account
 
@@ -82,6 +103,19 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(1, len(fee.original))
         self.assertEqual(0, len(fee.new))
         self.assertAlmostEqual(Decimal(-0.25477), withholding.amount, 3)
+
+    def test_property_valuation(self):
+        account_type = create_savings_account()
+
+        account = evaluate_account_with_withholding_tax_change(account_type, monthly_fee=Decimal(1),
+                                                               deposit=Decimal(1000),
+                                                               withholding_tax1=Decimal(0.2),
+                                                               withholding_tax2=Decimal(0.1),
+                                                               tax_change_date=date(2019, 7, 1))
+
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(4.51790), places=4)
+        self.assertAlmostEqual(account.transactions[1].amount, Decimal(0.08219), places=4)
 
 
 if __name__ == '__main__':
