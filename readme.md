@@ -59,7 +59,7 @@ You can define custom calculations when calculating either schedules or transact
 - transaction: Transaction
 - config: Configuration
 
-Example of this calculation can be found in [Savings account](./tests/Savings Account.xlsx) workbook.
+Example of this calculation can be found in [Savings account](./tests/SavingsAccount.xlsx) workbook.
 
 Here is a code that will create this configuration:
 
