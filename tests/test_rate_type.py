@@ -38,7 +38,7 @@ class TestRateType(unittest.TestCase):
         self.assertEqual(rt_users.get_daily_fee(Decimal(1), value_date), Decimal(1))
         self.assertEqual(rt_users.get_daily_fee(Decimal(5), value_date), Decimal(3 * 30 + 2 * 25) / (Decimal(30)))
         self.assertEqual(rt_users.get_daily_fee(Decimal(12), value_date),
-                          Decimal(3 * 30 + 7 * 25 + 2 * 10) / Decimal(30))
+                         Decimal(3 * 30 + 7 * 25 + 2 * 10) / Decimal(30))
 
 
 if __name__ == '__main__':

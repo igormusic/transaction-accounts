@@ -1,9 +1,9 @@
 from calendar import monthrange
-from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import Enum
 from typing import List, Optional, Dict
+
 from pydantic import BaseModel
 
 
@@ -210,13 +210,8 @@ class AccountType(BaseModel):
         return next((tt for tt in self.triggered_transactions if
                      tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
 
-
-
     def __getattr__(self, method_name):
         if method_name in self.rate_types:
             return self.rate_types[method_name]
         else:
             raise AttributeError(f'No such attribute: {method_name}')
-
-
-

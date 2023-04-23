@@ -30,20 +30,23 @@ We would like to have interest rate with 3 tiers:
 
 We would like to have monthly fee of 1.00 charged at the end of each month to the account before interest is accrued.
 
-Deposit transaction will increase current balance, and it will be used to deposit money to the account. 
+Deposit transaction will increase current balance, and it will be used to deposit money to the account.
 This transaction will be externally created and posted to the account.
 
-Interest accrued transaction will increase interest accrued balance, and it will be used to accrue interest on the account.
+Interest accrued transaction will increase interest accrued balance, and it will be used to accrue interest on the
+account.
 
 Interest will be accrued daily, and it will be calculated based on current balance and interest rate.
 
 Interest capitalized transaction will increase current balance and decrease interest accrued balance.
 This transaction will be internally created and posted to the account at the end of each month.
 
-Withholding tax transaction will decrease withholding tax balance, and it will be used to pay withholding tax on the account. 
+Withholding tax transaction will decrease withholding tax balance, and it will be used to pay withholding tax on the
+account.
 It will be calculated as 20% of interest capitalized transaction.
 
-We will use accrual schedule to accrue interest daily, and we will use compounding schedule to capitalize interest at the end of each month.
+We will use accrual schedule to accrue interest daily, and we will use compounding schedule to capitalize interest at
+the end of each month.
 
 We will use interest rate to calculate interest.
 
@@ -51,9 +54,11 @@ We will use trigger transaction to calculate withholding tax.
 
 We will use monthly fee property to specify monthly fee. This amount will be charged at the end of each month.
 
-Note that this framework is not limited to this configuration, and it can be used to create any type of transaction account.
+Note that this framework is not limited to this configuration, and it can be used to create any type of transaction
+account.
 
-You can define custom calculations when calculating either schedules or transactions. In this context you can use any of the following variables:
+You can define custom calculations when calculating either schedules or transactions. In this context you can use any of
+the following variables:
 
 - account: Account
 - transaction: Transaction

@@ -5,10 +5,13 @@ from tests.test_config import create_savings_account
 
 
 def evaluate_account(account_type: AccountType, monthly_fee: Decimal, deposit: Decimal,
-                     withholdingTax: Decimal) -> Account:
-    account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
+                     withholding_tax: Decimal) -> Account:
+    start_date = date(2019, 1, 1)
+    account = Account(start_date=start_date, account_type_name=account_type.name,
                       account_type=account_type,
-                      properties={"monthlyFee": monthly_fee, "withholdingTax": withholdingTax})
+                      properties={"monthlyFee": PropertyValue(value={start_date: monthly_fee}),
+                                  "withholdingTax": PropertyValue(value={start_date: withholding_tax})})
+
     valuation = AccountValuation(account, account_type, date(2020, 1, 1))
     deposit_transaction_type = account_type.get_transaction_type("deposit")
     external_transactions = group_by_date([
@@ -49,7 +52,8 @@ class TestAccount(unittest.TestCase):
     def test_valuation(self):
         account_type = create_savings_account()
 
-        account = evaluate_account(account_type, monthly_fee=Decimal(1), deposit=Decimal(1000), withholdingTax=Decimal(0.2))
+        account = evaluate_account(account_type, monthly_fee=Decimal(1), deposit=Decimal(1000),
+                                   withholding_tax=Decimal(0.2))
 
         self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
         self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.04955), places=4)
@@ -59,9 +63,9 @@ class TestAccount(unittest.TestCase):
         account_type = create_savings_account()
 
         original = evaluate_account(account_type, monthly_fee=Decimal(1),
-                                    deposit=Decimal(1000), withholdingTax=Decimal(0.2)).transactions
+                                    deposit=Decimal(1000), withholding_tax=Decimal(0.2)).transactions
         new = evaluate_account(account_type, monthly_fee=Decimal(0),
-                               deposit=Decimal(1000), withholdingTax=Decimal(0.1)).transactions
+                               deposit=Decimal(1000), withholding_tax=Decimal(0.1)).transactions
 
         difference = valuation_difference(original, new)
 

@@ -8,7 +8,7 @@ class TestSchedule(unittest.TestCase):
     end_date = start_date + relativedelta(years=+25)
 
     def __get_daily_schedule(self, start_date: date, end_date: date, end_type: ScheduleEndType):
-        return Schedule(start_date= start_date,end_type= end_type,frequency= ScheduleFrequency.DAILY, interval=1,
+        return Schedule(start_date=start_date, end_type=end_type, frequency=ScheduleFrequency.DAILY, interval=1,
                         adjustement=BusinessDayAdjustment.NO_ADJUSTMENT, end_date=end_date)
 
     def test_daily_schedule_no_end_tests(self):
@@ -28,8 +28,9 @@ class TestSchedule(unittest.TestCase):
 
     def test_monthly_schedule(self):
         interest_start = date(2013, 3, 31)
-        schedule = Schedule(start_date=interest_start, end_type=ScheduleEndType.END_DATE, frequency=ScheduleFrequency.MONTHLY,
-                            interval=1,end_date=self.end_date)
+        schedule = Schedule(start_date=interest_start, end_type=ScheduleEndType.END_DATE,
+                            frequency=ScheduleFrequency.MONTHLY,
+                            interval=1, end_date=self.end_date)
 
         schedule.exclude_dates.append(date(2013, 12, 31))
         schedule.include_dates.append(self.end_date)
@@ -68,7 +69,7 @@ class TestSchedule(unittest.TestCase):
     def test_monthly_repeats_schedule(self):
         start_date = date(2019, 12, 1)
         discount_schedule = Schedule(start_date=start_date, end_type=ScheduleEndType.END_REPEATS,
-                                     frequency= ScheduleFrequency.MONTHLY, interval=1,
+                                     frequency=ScheduleFrequency.MONTHLY, interval=1,
                                      adjustment=BusinessDayAdjustment.NO_ADJUSTMENT, number_of_repeats=3)
 
         discount_dates = discount_schedule.get_all_dates(self.end_date)
