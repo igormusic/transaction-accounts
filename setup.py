@@ -71,7 +71,7 @@ Here is a code that will create this configuration:
 
 .. code:: python
 
-def create_savings_account() -> AccountType:
+ def create_savings_account() -> AccountType:
     acc = AccountType(name="savingsAccount", label="Savings Account")
 
     current = acc.add_position_type("current", "current balance")
