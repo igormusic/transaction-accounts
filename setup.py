@@ -171,7 +171,6 @@ Given configuration, we can create an account:
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',  # Define that your audience are developers
         'Topic :: Software Development :: Build Tools',
-        'TOPIC :: OFFICE/BUSINESS :: FINANCIAL :: ACCOUNTING',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.9',
     ],
