@@ -49,16 +49,16 @@ def create_savings_account() -> AccountType:
 
     acc.add_scheduled_transaction(accrual_schedule, ScheduledTransactionTiming.END_OF_DAY,
                                   interest_accrued_tt,
-                                  "account.current * accountType.interest.get_rate(account.current) / Decimal(365)")
+                                  "account.current * accountType.interest.get_rate(valueDate, account.current) / Decimal(365)")
 
     acc.add_scheduled_transaction(compounding_schedule, ScheduledTransactionTiming.END_OF_DAY,
                                   capitalized_tt, "account.accrued")
 
     interest_rate = acc.add_rate_type("interest", "Interest Rate")
 
-    interest_rate.add_tier(Decimal(10000), Decimal(0.03))
-    interest_rate.add_tier(Decimal(100000), Decimal(0.035))
-    interest_rate.add_tier(Decimal(50000), Decimal(0.04))
+    interest_rate.add_tier(date(2019, 1, 1), Decimal(10000), Decimal(0.03))
+    interest_rate.add_tier(date(2019, 1, 1), Decimal(100000), Decimal(0.035))
+    interest_rate.add_tier(date(2019, 1, 1), Decimal(50000), Decimal(0.04))
 
     acc.add_trigger_transaction(capitalized_tt, withholding_tt,
                                 "transaction.amount * account.withholdingTax[valueDate]")

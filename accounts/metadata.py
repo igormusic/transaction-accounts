@@ -3,8 +3,9 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 from typing import List, Optional, Dict
-
 from pydantic import BaseModel
+
+from accounts.utility import CustomEncoder
 
 
 class TransactionOperation(Enum):
@@ -56,36 +57,59 @@ class RateTier(BaseModel):
 class RateType(BaseModel):
     name: str
     label: str
-    rate_tiers: List[RateTier] = []
+    rate_tiers: Dict[str, List[RateTier]] = {}
 
-    def add_tier(self, to_amount: Decimal, rate: Decimal):
-        rate_tier = RateTier(from_amount=self.get_max_to_amount(), to_amount=to_amount, rate=rate)
-        self.rate_tiers.append(rate_tier)
+    class Config:
+        json_encoders = {Dict: CustomEncoder()}
 
-    def get_max_to_amount(self):
-        if len(self.rate_tiers) == 0:
+    @staticmethod
+    def __get_key(value_date):
+        return value_date.strftime("%Y-%m-%d")
+
+    def add_tier(self, value_date: date, to_amount: Decimal, rate: Decimal):
+        key = self.__get_key(value_date)
+        if key not in self.rate_tiers:
+            self.rate_tiers[key] = []
+
+        rate_tier = RateTier(from_amount=self.get_max_to_amount(value_date), to_amount=to_amount, rate=rate)
+        self.rate_tiers[key].append(rate_tier)
+
+    def get_max_to_amount(self, value_date: date):
+        key = self.__get_key(value_date)
+        if key not in self.rate_tiers:
             return Decimal(0)
 
-        max_value = max(self.rate_tiers, key=lambda tier: tier.to_amount)
+        rate_tiers = self.rate_tiers[key]
+
+        if len(rate_tiers) == 0:
+            return Decimal(0)
+
+        max_value = max(rate_tiers, key=lambda tier: tier.to_amount)
         return max_value.to_amount
 
-    def get_rate(self, amount: Decimal):
-        rate_tier = next(rt for rt in self.rate_tiers if rt.from_amount <= amount <= rt.to_amount)
+    def __get_tiers(self, value_date) -> List[RateTier]:
+        # find first date that is less than or equal to value_date
+        key = self.__get_key(value_date)
+        index_date = max([d for d in self.rate_tiers.keys() if d <= key])
+        return self.rate_tiers[index_date]
+
+    def get_rate(self, value_date: date, amount: Decimal):
+        rate_tier = next(rt for rt in self.__get_tiers(value_date) if rt.from_amount <= amount <= rt.to_amount)
 
         return rate_tier.rate
 
     def get_daily_fee(self, users: Decimal, value_date: date):
         _, days_in_month = monthrange(value_date.year, value_date.month)
-        monthly_fee = Decimal(self.get_fee(Decimal(0), users))
+        monthly_fee = Decimal(self.get_fee(value_date, Decimal(0), users))
         return monthly_fee / Decimal(days_in_month)
 
-    def get_fee(self, from_amount: Decimal, to_amount: Decimal):
+    def get_fee(self, value_date: date, from_amount: Decimal, to_amount: Decimal):
         processed = from_amount
         fee = Decimal(0)
 
         exit_loop = False
 
-        for rate_tier in self.rate_tiers:
+        for rate_tier in self.__get_tiers(value_date):
             if rate_tier.from_amount <= processed < rate_tier.to_amount:
                 part_processed = rate_tier.to_amount - processed
 

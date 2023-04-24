@@ -1,9 +1,7 @@
 from datetime import timedelta
 from itertools import groupby
 from typing import Mapping, Any
-
 from dateutil.relativedelta import *
-
 from accounts.metadata import *
 
 
