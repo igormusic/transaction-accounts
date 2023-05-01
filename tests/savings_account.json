@@ -1,0 +1,168 @@
+{
+    "name": "savingsAccount",
+    "label": "Savings Account",
+    "transaction_types": [
+        {
+            "name": "deposit",
+            "label": "Deposit",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "current"
+                }
+            ]
+        },
+        {
+            "name": "fee",
+            "label": "Fee",
+            "position_rules": [
+                {
+                    "operation": "debit",
+                    "position_type_name": "current"
+                }
+            ]
+        },
+        {
+            "name": "interestAccrued",
+            "label": "Interest Accrued",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "accrued"
+                }
+            ]
+        },
+        {
+            "name": "capitalized",
+            "label": "Interest Capitalized",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "current"
+                },
+                {
+                    "operation": "debit",
+                    "position_type_name": "accrued"
+                }
+            ]
+        },
+        {
+            "name": "withholdingTax",
+            "label": "Withholding Tax",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "withholding"
+                }
+            ]
+        }
+    ],
+    "position_types": [
+        {
+            "name": "current",
+            "label": "current balance"
+        },
+        {
+            "name": "accrued",
+            "label": "interest accrued"
+        },
+        {
+            "name": "withholding",
+            "label": "withholding tax"
+        }
+    ],
+    "rate_types": {
+        "interest": {
+            "name": "interest",
+            "label": "Interest Rate",
+            "rate_tiers": {
+                "2019-01-01": [
+                    {
+                        "from_amount": 0,
+                        "to_amount": 10000,
+                        "rate": 0.03
+                    },
+                    {
+                        "from_amount": 10000,
+                        "to_amount": 100000,
+                        "rate": 0.035
+                    },
+                    {
+                        "from_amount": 100000,
+                        "to_amount": 50000,
+                        "rate": 0.04
+                    }
+                ]
+            }
+        }
+    },
+    "triggered_transactions": [
+        {
+            "trigger_transaction_type_name": "capitalized",
+            "generated_transaction_type": "withholdingTax",
+            "amount_expression": "transaction.amount * account.withholdingTax[value_date]"
+        }
+    ],
+    "schedule_types": [
+        {
+            "name": "accrual",
+            "label": "Accrual Schedule",
+            "frequency": "daily",
+            "end_type": "no_end",
+            "business_day_adjustment": "no_adjustment",
+            "interval_expression": "1",
+            "start_date_expression": "account.start_date",
+            "end_date_expression": null,
+            "number_of_repeats_expression": null,
+            "include_dates_expression": null,
+            "exclude_dates_expression": null
+        },
+        {
+            "name": "compounding",
+            "label": "Compounding Schedule",
+            "frequency": "monthly",
+            "end_type": "no_end",
+            "business_day_adjustment": "no_adjustment",
+            "interval_expression": "1",
+            "start_date_expression": "account.start_date + relativedelta(month=+1) + relativedelta(days=-1)",
+            "end_date_expression": null,
+            "number_of_repeats_expression": null,
+            "include_dates_expression": null,
+            "exclude_dates_expression": null
+        }
+    ],
+    "property_types": [
+        {
+            "name": "monthlyFee",
+            "label": "Monthly Fee",
+            "data_type": "decimal",
+            "required": true
+        },
+        {
+            "name": "withholdingTax",
+            "label": "Withholding Tax Rate",
+            "data_type": "decimal",
+            "required": true
+        }
+    ],
+    "scheduled_transactions": [
+        {
+            "schedule_name": "compounding",
+            "timing": "end_of_day",
+            "generated_transaction_type": "fee",
+            "amount_expression": "account.monthlyFee[value_date]"
+        },
+        {
+            "schedule_name": "accrual",
+            "timing": "end_of_day",
+            "generated_transaction_type": "interestAccrued",
+            "amount_expression": "account.current * accountType.interest.get_rate(value_date, account.current) / Decimal(365)"
+        },
+        {
+            "schedule_name": "compounding",
+            "timing": "end_of_day",
+            "generated_transaction_type": "capitalized",
+            "amount_expression": "account.accrued"
+        }
+    ]
+}

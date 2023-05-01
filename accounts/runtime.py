@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from itertools import groupby
 from typing import Mapping, Any
@@ -142,35 +143,49 @@ class Account(BaseModel):
     start_date: date
     account_type_name: str
     positions: dict[str, Position] = {}
-    properties: dict[str, PropertyValue] = {}
+    value_dated_properties: dict[str, PropertyValue] = {}
+    properties: dict[str, Any] = {}
+    dates: dict[str, date] = {}
     schedules: dict[str, Schedule] = {}
     transactions: list[Transaction] = []
+    instalments: dict[date, Decimal] = {}
 
     def __init__(self, **kw):
         super().__init__(**kw)
         if "account_type" in kw:
             account_type: AccountType = kw["account_type"]
+            self.__validate_properties(account_type)
             self.__initialize_positions(account_type)
             self.__initialize_schedules(account_type)
+
+    def __validate_properties(self, account_type: AccountType):
+        for property_type in account_type.property_types:
+            if property_type.value_dated:
+                if property_type.name not in self.value_dated_properties:
+                    raise ValueError(
+                        f"Value dated property {property_type.name} is required for account type {account_type.name}")
+            else:
+                if property_type.name not in self.properties:
+                    raise ValueError(f"Property {property_type.name} is required for account type {account_type.name}")
 
     def __initialize_schedules(self, account_type: AccountType):
         for schedule_type in account_type.schedule_types:
             schedule = Schedule(
                 start_date=self.evaluate(schedule_type.start_date_expression,
                                          {"accountType": account_type, "account": self,
-                                          "valueDate": self.start_date}),
+                                          "value_date": self.start_date}),
                 end_type=schedule_type.end_type,
                 frequency=schedule_type.frequency,
                 interval=self.evaluate(schedule_type.interval_expression, {"accountType": account_type,
                                                                            "account": self,
-                                                                           "valueDate": self.start_date}),
+                                                                           "value_date": self.start_date}),
                 adjustment=schedule_type.business_day_adjustment)
 
             if schedule_type.end_date_expression:
                 schedule.end_date = self.evaluate(schedule_type.end_date_expression,
                                                   {"accountType": account_type,
                                                    "account": self,
-                                                   "valueDate": self.start_date})
+                                                   "value_date": self.start_date})
 
             if schedule_type.number_of_repeats_expression:
                 schedule.number_of_repeats = self.evaluate(schedule_type.number_of_repeats_expression)
@@ -183,12 +198,16 @@ class Account(BaseModel):
                 if rule.position_type_name not in self.positions:
                     self.positions[rule.position_type_name] = Position()
 
-    def add_transaction(self, transaction: Transaction, transaction_type: TransactionType) -> Transaction:
+    def add_transaction(self, transaction: Transaction, transaction_type: TransactionType) -> dict[str, Decimal]:
+        updated_positions: dict[str, Decimal] = {}
         for rule in transaction_type.position_rules:
             position = self.positions[rule.position_type_name]
             position.apply_operation(rule.operation, transaction.amount)
+            updated_positions[rule.position_type_name] = position.amount
 
         self.transactions.append(transaction)
+
+        return updated_positions
 
     def evaluate(self, expression: str, locals: Optional[Mapping[str, Any]]) -> Any:
         try:
@@ -203,6 +222,8 @@ class Account(BaseModel):
             return self.positions[method_name].amount
         if method_name in self.properties:
             return self.properties[method_name]
+        if method_name in self.dates:
+            return self.dates[method_name]
         else:
             raise AttributeError(f'No such attribute: {method_name}')
 
@@ -268,13 +289,32 @@ def get_difference(new_grouped, original_grouped):
                 new=new_transactions)
 
 
+class TransactionTrace:
+    transaction: Transaction
+    positions: Dict[str, Decimal]
+
+    def __init__(self, transaction: Transaction, positions: Dict[str, Decimal]):
+        self.transaction = transaction
+        self.positions = positions
+
+    def __str__(self):
+        return f" {self.transaction.value_date} {self.transaction.transaction_type} {self.transaction.amount} {self.positions}"
+
+
 class AccountValuation:
-    def __init__(self, account: Account, account_type: AccountType, action_date: date):
+    account: Account
+    account_type: AccountType
+    action_date: date
+    trace: bool
+    trace_list: List[TransactionTrace] = []
+
+    def __init__(self, account: Account, account_type: AccountType, action_date: date, trace: bool = False):
         self.account = account
         self.account_type = account_type
         self.action_date = action_date
+        self.trace = trace
 
-    def forecast(self, to_value_date: date, external_transactions):
+    def forecast(self, to_value_date: date, external_transactions: dict[date, List[ExternalTransaction]]):
         value_date = self.account.start_date
 
         self.start_of_day(value_date)
@@ -288,7 +328,8 @@ class AccountValuation:
             self.start_of_day(value_date)
             self.process_external_transactions(value_date, external_transactions)
 
-    def process_external_transactions(self, value_date: date, external_transactions):
+    def process_external_transactions(self, value_date: date,
+                                      external_transactions: dict[date, List[ExternalTransaction]]):
         if value_date in external_transactions:
             for external_transaction in external_transactions[value_date]:
                 transaction_type = self.account_type.get_transaction_type(external_transaction.transaction_type_name)
@@ -298,6 +339,14 @@ class AccountValuation:
         for scheduled_transaction in self.account_type.scheduled_transactions:
             if scheduled_transaction.timing == ScheduledTransactionTiming.START_OF_DAY:
                 self.__create_transaction_if_due(value_date, scheduled_transaction)
+
+        if self.account_type.instalment_type:
+            if self.account_type.instalment_type.timing == ScheduledTransactionTiming.START_OF_DAY \
+                    and value_date in self.account.instalments:
+                amount = self.account.instalments[value_date]
+                transaction_type = self.account_type.get_transaction_type(
+                    self.account_type.instalment_type.transaction_type)
+                self.__create_transaction(transaction_type, value_date, amount, True)
 
     def __create_transaction_if_due(self, value_date: date, scheduled_transaction: ScheduledTransaction):
         schedule = self.account.schedules[scheduled_transaction.schedule_name]
@@ -313,9 +362,12 @@ class AccountValuation:
             amount = self.account.evaluate(amount_expression,
                                            {"accountType": self.account_type,
                                             "account": self.account,
-                                            "valueDate": value_date})
-        except Exception as e:
+                                            "value_date": value_date})
 
+            if not transaction_type.maximum_precision:
+                amount = Decimal(round(amount, 2))
+
+        except Exception as e:
             raise Exception(f'Error evaluating expression: {amount_expression} {e.args}') from e
         else:
             if amount != Decimal(0):
@@ -323,10 +375,15 @@ class AccountValuation:
 
     def __create_transaction(self, transaction_type: TransactionType, value_date: date,
                              amount: Decimal, system_generated: bool):
+
         transaction = Transaction(action_date=self.action_date, value_date=value_date,
                                   transaction_type=transaction_type.name,
                                   amount=amount, system_generated=system_generated)
-        self.account.add_transaction(transaction, transaction_type)
+
+        positions = self.account.add_transaction(transaction, transaction_type)
+
+        if self.trace:
+            self.trace_list.append(TransactionTrace(transaction, positions))
 
         triggered_transaction = self.account_type.get_trigger_transaction(transaction_type.name)
 
@@ -335,7 +392,7 @@ class AccountValuation:
                                                    {"transaction": transaction,
                                                     "accountType": self.account_type,
                                                     "account": self.account,
-                                                    "valueDate": value_date})
+                                                    "value_date": value_date})
 
             generated_transaction_type = self.account_type.get_transaction_type(
                 triggered_transaction.generated_transaction_type)
@@ -345,3 +402,79 @@ class AccountValuation:
         for scheduled_transaction in self.account_type.scheduled_transactions:
             if scheduled_transaction.timing == ScheduledTransactionTiming.END_OF_DAY:
                 self.__create_transaction_if_due(value_date, scheduled_transaction)
+
+
+class HolidayDate(BaseModel):
+    description: str
+    value: date
+
+
+class BusinessDayCalculation(Enum):
+    ANY_DAY = "AnyDay"
+    PREVIOUS_BUSINESS_DAY = "PreviousBusinessDay"
+    NEXT_BUSINESS_DAY = "NextBusinessDay"
+    CLOSEST_BUSINESS_DAY_OR_NEXT = "ClosestBusinessDayOrNext"
+    NEXT_BUSINESS_DAY_THIS_MONTH_OR_PREVIOUS = "NextBusinessDayThisMonthOrPrevious"
+
+
+class Calendar(BaseModel):
+    name: str
+    is_default: bool
+    holidays: List[HolidayDate] = []
+    holidays_map: Dict[date, HolidayDate] = None
+
+    def add(self, description: str, value: date) -> 'Calendar':
+        self.holidays.append(HolidayDate(description=description, value=value))
+        return self
+
+    def __holidays_map(self):
+        if self.holidays_map is None:
+            self.holidays_map = {holiday.value: holiday for holiday in self.holidays}
+
+        return self.holidays_map
+
+    def is_business_day(self, value: date):
+        if value.weekday() == 5 or value.weekday() == 6:
+            return False
+
+        return value not in self.__holidays_map()
+
+    def get_calculated_business_day(self, value: date, adjustment: BusinessDayCalculation):
+        if adjustment == BusinessDayCalculation.ANY_DAY:
+            return value
+
+        if adjustment == BusinessDayCalculation.PREVIOUS_BUSINESS_DAY:
+            return self.get_previous_business_day(value)
+
+        if adjustment == BusinessDayCalculation.NEXT_BUSINESS_DAY:
+            return self.get_next_business_day(value)
+
+        previous_business_day = self.get_previous_business_day(value)
+        next_business_day = self.get_next_business_day(value)
+
+        if adjustment == BusinessDayCalculation.CLOSEST_BUSINESS_DAY_OR_NEXT:
+            if (value - previous_business_day).days > (next_business_day - value).days:
+                return next_business_day
+            elif (value - previous_business_day).days < (next_business_day - value).days:
+                return previous_business_day
+            else:
+                return next_business_day
+
+        # last option is NextBusinessDayThisMonthOrPrevious
+
+        if next_business_day.month == value.month:
+            return next_business_day
+
+        return previous_business_day
+
+    def get_previous_business_day(self, date: date):
+        while not self.is_business_day(date):
+            date = date - timedelta(days=1)
+
+        return date
+
+    def get_next_business_day(self, date: date):
+        while not self.is_business_day(date):
+            date = date + timedelta(days=1)
+
+        return date

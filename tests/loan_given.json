@@ -1,0 +1,78 @@
+{
+    "name": "loanGiven",
+    "label": "Loan Given",
+    "position_types": [
+        {
+            "name": "InterestAccrued",
+            "label": "Interest Accrued"
+        },
+        {
+            "name": "InterestCapitalized",
+            "label": "Interest Capitalized"
+        },
+        {
+            "name": "Principal",
+            "label": "Principal"
+        }
+    ],
+    "date_types": [
+        {
+            "name": "AccrualStart",
+            "label": "Accrual Start"
+        },
+        {
+            "name": "EndDate",
+            "label": "End Date"
+        }
+    ],
+    "transaction_types": [
+        {
+            "name": "InterestAccrued",
+            "label": "Interest Accrued",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "InterestAccrued"
+                }
+            ]
+        },
+        {
+            "name": "InterestCapitalized",
+            "label": "InterestCapitalized",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "Principal"
+                },
+                {
+                    "operation": "debit",
+                    "position_type_name": "InterestAccrued"
+                },
+                {
+                    "operation": "credit",
+                    "position_type_name": "InterestCapitalized"
+                }
+            ]
+        },
+        {
+            "name": "Redemption",
+            "label": "Redemption",
+            "position_rules": [
+                {
+                    "operation": "debit",
+                    "position_type_name": "Principal"
+                }
+            ]
+        },
+        {
+            "name": "Advance",
+            "label": "Advance",
+            "position_rules": [
+                {
+                    "operation": "credit",
+                    "position_type_name": "Principal"
+                }
+            ]
+        }
+    ]
+}

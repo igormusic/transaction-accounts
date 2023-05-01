@@ -1,4 +1,5 @@
 import unittest
+import yaml
 from accounts.metadata import *
 from tests.test_config import create_savings_account
 
@@ -29,7 +30,7 @@ class RateTest(unittest.TestCase):
     def test_get_max_when_non_empy(self):
         rate_type = RateType(name='rates', label='Rates')
 
-        rate_type.add_tier(date(2019, 1, 1),Decimal(100), Decimal(5))
+        rate_type.add_tier(date(2019, 1, 1), Decimal(100), Decimal(5))
 
         max_value = rate_type.get_max_to_amount(date(2019, 1, 1))
 

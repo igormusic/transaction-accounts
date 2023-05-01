@@ -46,7 +46,11 @@ class TestAccount(unittest.TestCase):
     def test_create_account(self):
         account_type = create_savings_account()
 
-        account = Account(start_date=date.today(), account_type_name=account_type.name, account_type=account_type)
+        account = Account(start_date=date.today(),
+                          account_type_name=account_type.name,
+                          account_type=account_type,
+                          properties={"monthlyFee": Decimal(1),
+                                      "withholdingTax": Decimal(0.2)})
 
         self.assertEqual(3, len(account.positions.keys()))
 
@@ -59,8 +63,12 @@ class TestAccount(unittest.TestCase):
     def test_eval(self):
         account_type = create_savings_account()
 
-        account = Account(start_date=date(2019, 1, 1), account_type_name=account_type.name,
-                          account_type=account_type)
+        account = Account(start_date=date(2019, 1, 1),
+                          account_type_name=account_type.name,
+                          account_type=account_type,
+                          properties={"monthlyFee": Decimal(1),
+                                      "withholdingTax": Decimal(0.2)}
+                          )
 
         self.assertEqual(Decimal(0), account.evaluate("self.current", None))
 
@@ -76,8 +84,8 @@ class TestAccount(unittest.TestCase):
         account = evaluate_account(account_type, monthly_fee=Decimal(1), deposit=Decimal(1000),
                                    withholding_tax=Decimal(0.2))
 
-        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
-        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.04955), places=4)
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.25), places=4)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(6.05), places=4)
         self.assertAlmostEqual(account.transactions[1].amount, Decimal(0.08219), places=4)
 
     def test_valuation_difference(self):
@@ -94,7 +102,7 @@ class TestAccount(unittest.TestCase):
 
         diff: List[TransactionDifference] = difference[date(2019, 1, 31)]
 
-        self.assertEqual(4, len(diff))
+        self.assertEqual(3, len(diff))
 
         fee = next(t for t in diff if t.transaction_type == 'fee')
         withholding = next(t for t in diff if t.transaction_type == 'withholdingTax')
@@ -102,7 +110,7 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(Decimal(-1), fee.amount)
         self.assertEqual(1, len(fee.original))
         self.assertEqual(0, len(fee.new))
-        self.assertAlmostEqual(Decimal(-0.25477), withholding.amount, 3)
+        self.assertAlmostEqual(Decimal(-0.26), withholding.amount, 2)
 
     def test_property_valuation(self):
         account_type = create_savings_account()
@@ -113,8 +121,8 @@ class TestAccount(unittest.TestCase):
                                                                withholding_tax2=Decimal(0.1),
                                                                tax_change_date=date(2019, 7, 1))
 
-        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.24775), places=4)
-        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(4.51790), places=4)
+        self.assertAlmostEqual(account.positions['current'].amount, Decimal(1018.25), places=2)
+        self.assertAlmostEqual(account.positions['withholding'].amount, Decimal(4.52), places=2)
         self.assertAlmostEqual(account.transactions[1].amount, Decimal(0.08219), places=4)
 
 

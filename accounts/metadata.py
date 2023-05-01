@@ -48,6 +48,11 @@ class PositionType(BaseModel):
     label: str
 
 
+class DateType(BaseModel):
+    name: str
+    label: str
+
+
 class RateTier(BaseModel):
     from_amount: Decimal
     to_amount: Decimal
@@ -90,7 +95,10 @@ class RateType(BaseModel):
     def __get_tiers(self, value_date) -> List[RateTier]:
         # find first date that is less than or equal to value_date
         key = self.__get_key(value_date)
-        index_date = max([d for d in self.rate_tiers.keys() if d <= key])
+        dates = [d for d in self.rate_tiers.keys() if d <= key]
+        if len(dates) == 0:
+            raise Exception(f"No rate tiers found for date {str(value_date)} in rate table {self.name}")
+        index_date = max(dates)
         return self.rate_tiers[index_date]
 
     def get_rate(self, value_date: date, amount: Decimal):
@@ -135,6 +143,7 @@ class TransactionType(BaseModel):
     name: str
     label: str
     position_rules: List[PositionRule] = []
+    maximum_precision: bool = False
 
     def add_position_rule(self, transaction_operation: TransactionOperation, position_type: PositionType):
         self.position_rules.append(PositionRule(operation=transaction_operation, position_type_name=position_type.name))
@@ -155,11 +164,17 @@ class ScheduleType(BaseModel):
     exclude_dates_expression: str = None
 
 
+class TransactionDateAmount(BaseModel):
+    amount_expression: str
+    date: date
+
+
 class ScheduledTransaction(BaseModel):
     schedule_name: str
     timing: ScheduledTransactionTiming
     generated_transaction_type: str
     amount_expression: str
+    amounts: List[TransactionDateAmount] = []
 
 
 class TriggeredTransaction(BaseModel):
@@ -173,6 +188,17 @@ class PropertyType(BaseModel):
     label: str
     data_type: DataType
     required: bool = True
+    value_dated: bool = False
+
+
+class InstalmentType(BaseModel):
+    name: str
+    label: str
+    timing: ScheduledTransactionTiming
+    transaction_type: str
+    amount_expression: str
+    solve_for_zero_expression: str
+    solve_for_date_expression: str
 
 
 class AccountType(BaseModel):
@@ -180,20 +206,26 @@ class AccountType(BaseModel):
     label: str
     transaction_types: List[TransactionType] = []
     position_types: List[PositionType] = []
+    date_types: List[DateType] = []
     rate_types: Dict[str, RateType] = {}
     triggered_transactions: List[TriggeredTransaction] = []
     schedule_types: List[ScheduleType] = []
     property_types: List[PropertyType] = []
     scheduled_transactions: List[ScheduledTransaction] = []
-    triggered_transactions: List[TriggeredTransaction] = []
+    instalment_type: InstalmentType = None
 
     def add_property_type(self, name: str, label: str, data_type: DataType, required: bool = True) -> PropertyType:
         property_type = PropertyType(name=name, label=label, data_type=data_type.value, required=required)
         self.property_types.append(property_type)
         return property_type
 
-    def add_transaction_type(self, name: str, label: str) -> TransactionType:
-        transaction_type = TransactionType(name=name, label=label)
+    def add_date_type(self, name: str, label: str) -> DateType:
+        date_type = DateType(name=name, label=label)
+        self.date_types.append(date_type)
+        return date_type
+
+    def add_transaction_type(self, name: str, label: str, maximum_precision: bool = False) -> TransactionType:
+        transaction_type = TransactionType(name=name, label=label, maximum_precision=maximum_precision)
         self.transaction_types.append(transaction_type)
         return transaction_type
 
@@ -234,8 +266,17 @@ class AccountType(BaseModel):
         return next((tt for tt in self.triggered_transactions if
                      tt.trigger_transaction_type_name == trigger_transaction_type_name), None)
 
+    def add_instalment_type(self, name: str, label: str, timing: ScheduledTransactionTiming,
+                            transaction_type: TransactionType, amount_expression: str,
+                            solve_for_zero_expression: str, solve_for_date_expression: str) -> InstalmentType:
+        instalment_type = InstalmentType(name=name, label=label, timing=timing, ç=transaction_type.name,
+                                         amount_expression=amount_expression,
+                                         solve_for_zero_expression=solve_for_zero_expression,
+                                         solve_for_date_expression=solve_for_date_expression)
+        self.instalment_type = instalment_type
+
     def __getattr__(self, method_name):
         if method_name in self.rate_types:
             return self.rate_types[method_name]
         else:
-            raise AttributeError(f'No such attribute: {method_name}')
+             raise AttributeError(f'No such attribute: {method_name}')
