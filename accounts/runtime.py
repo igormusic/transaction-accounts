@@ -74,8 +74,8 @@ class Schedule(BaseModel):
         return test_date in self.cached_dates
 
     def get_all_dates(self, to_date: date):
-        if self.cached_dates and to_date in self.cached_dates:
-            return self.cached_dates[to_date]
+        if self.cached_dates:
+            return self.cached_dates.keys()
 
         dates: list[date] = []
         repeats: int = 1
@@ -93,9 +93,7 @@ class Schedule(BaseModel):
 
         dates = [keep_date for keep_date in dates if keep_date not in self.exclude_dates]
 
-        dates.sort()
-
-        self.cached_dates[to_date] = dates
+        self.cached_dates = {iter: iter for iter in dates}
 
         return dates
 
@@ -405,7 +403,8 @@ class AccountValuation:
                 amount = Decimal(round(amount, 2))
 
         except Exception as e:
-            raise Exception(f'Error calculating {transaction_type.name} on {value_date} expression : {amount_expression} {e.args}') from e
+            raise Exception(
+                f'Error calculating {transaction_type.name} on {value_date} expression : {amount_expression} {e.args}') from e
         else:
             if amount != Decimal(0):
                 self.__create_transaction(transaction_type, value_date, amount, True)
@@ -440,9 +439,24 @@ class AccountValuation:
             if scheduled_transaction.timing == ScheduledTransactionTiming.END_OF_DAY:
                 self.__create_transaction_if_due(value_date, scheduled_transaction)
 
-    def solve_for_zero(self) -> Decimal:
-        solver = Solver(self)
-        return solver.solve()
+    def __calculate_for_instalment(self, value: Decimal) -> Decimal:
+        self.init_account()
+
+        self.account.apply_calculated_installment(value)
+        self.forecast(self.account.dates[self.account_type.instalment_type.solve_for_date], {})
+        result = self.account.positions[self.account_type.instalment_type.solve_for_zero_position].amount
+        print(f'instalment {value} -> {self.account_type.instalment_type.solve_for_zero_position} {result}')
+        return result
+
+    def solve_instalment(self) -> Decimal:
+        amount = scipy.optimize.brentq(self.__calculate_for_instalment, Decimal(-100000000), Decimal(100000000),
+                                       xtol=Decimal(0.01))
+
+        amount = Decimal(round(amount, 2))
+        # apply amount to instalments
+        self.account.apply_calculated_installment(amount)
+
+        return amount
 
 
 class Solver:
@@ -450,18 +464,6 @@ class Solver:
 
     def __init__(self, valuer: AccountValuation):
         self.valuer = valuer
-
-    def calculate(self, value: Decimal) -> Decimal:
-        self.valuer.init_account()
-
-        self.valuer.account.apply_calculated_installment(value)
-        self.valuer.forecast(self.valuer.account.dates[self.valuer.account_type.instalment_type.solve_for_date], {})
-        result = self.valuer.account.positions[self.valuer.account_type.instalment_type.solve_for_zero_position].amount
-        print(f'instalment {value} -> {self.valuer.account_type.instalment_type.solve_for_zero_position} {result}')
-        return result
-
-    def solve(self) -> Decimal:
-        return scipy.optimize.brentq(self.calculate, Decimal(-100000000), Decimal(100000000), xtol=Decimal(0.01))
 
 
 class HolidayDate(BaseModel):
