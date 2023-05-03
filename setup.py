@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='transaction-accounts',
-    version='0.0.6',
+    version='0.1.0',
     description='Create configuration for transactional accounts and implement account runtime',
     long_description='''
 Transaction Accounts

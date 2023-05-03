@@ -96,7 +96,7 @@ def create_loan_given_account() -> AccountType:
                                        end_type=ScheduleEndType.NO_END,
                                        business_day_adjustment=BusinessDayAdjustment.NO_ADJUSTMENT,
                                        interval_expression="1",
-                                       start_date_expression="account.start_date + relativedelta(month=+1)",
+                                       start_date_expression="account.start_date + relativedelta(months=+1)",
                                        end_date_expression="account.end_date",
                                        include_dates_expression="account.end_date")
 
@@ -152,11 +152,12 @@ def create_loan_given_account() -> AccountType:
                                          advance_transaction,
                                          "account.advance")
 
-    InstalmentType(name="payments", label="Payments", timing=ScheduledTransactionTiming.START_OF_DAY,
-                   transaction_type=redemption.name,
-                   amount_expression="account.payment",
-                   solve_for_zero_expression="account.principal",
-                   solve_for_date_expression="account.end_date")
+    loan_given.add_instalment_type(name="payments", label="Payments", timing=ScheduledTransactionTiming.START_OF_DAY,
+                                   transaction_type=redemption.name,
+                                   property_name="payment",
+                                   solve_for_zero_position="principal",
+                                   solve_for_date="end_date",
+                                   schedule_name=redemption_schedule.name)
 
     loan_given.add_property_type("advance", "Advance Amount", DataType.DECIMAL, True)
     loan_given.add_property_type("payment", "Payment Amount", DataType.DECIMAL, True)
@@ -165,7 +166,7 @@ def create_loan_given_account() -> AccountType:
 
     interest_rate.add_tier(date(2000, 1, 1), Decimal(2000000), Decimal(0.0304))
     interest_rate.add_tier(date(2000, 1, 1), Decimal(10000000), Decimal(0.025))
-    interest_rate.add_tier(date(2000, 1, 1), Decimal(100000000), Decimal(0.02))
+    interest_rate.add_tier(date(2000, 1, 1), Decimal(1E30), Decimal(0.02))
 
     return loan_given
 

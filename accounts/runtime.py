@@ -1,9 +1,9 @@
-import logging
 from datetime import timedelta
 from itertools import groupby
 from typing import Mapping, Any
 from dateutil.relativedelta import *
 from accounts.metadata import *
+import scipy.optimize
 
 
 class Position(BaseModel):
@@ -49,7 +49,7 @@ class Schedule(BaseModel):
     number_of_repeats: int = 0
     include_dates: list[date] = []
     exclude_dates: list[date] = []
-    cached_dates: dict[date, list[date]] = {}
+    cached_dates: dict[date, date] = {}
 
     def __is_simple_daily_schedule(self):
         return (self.frequency == ScheduleFrequency.DAILY and
@@ -66,9 +66,12 @@ class Schedule(BaseModel):
             elif self.end_type == ScheduleEndType.END_DATE:
                 return self.start_date <= test_date <= self.end_date
 
-        dates: list[test_date] = self.get_all_dates(self.__last_date())
+        if not self.cached_dates:
+            # create dictionary of dates for each date
+            self.cached_dates = {date: date for date in self.get_all_dates(self.__last_date())}
 
-        return test_date in dates
+        # check if test_date is in dictionary
+        return test_date in self.cached_dates
 
     def get_all_dates(self, to_date: date):
         if self.cached_dates and to_date in self.cached_dates:
@@ -139,6 +142,11 @@ class PropertyValue(BaseModel):
         self.value[value_date] = value
 
 
+class Instalment(BaseModel):
+    amount: Decimal
+    is_fixed: bool
+
+
 class Account(BaseModel):
     start_date: date
     account_type_name: str
@@ -148,7 +156,7 @@ class Account(BaseModel):
     dates: dict[str, date] = {}
     schedules: dict[str, Schedule] = {}
     transactions: list[Transaction] = []
-    instalments: dict[date, Decimal] = {}
+    instalments: dict[date, Instalment] = {}
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -157,6 +165,7 @@ class Account(BaseModel):
             self.__validate_properties(account_type)
             self.__initialize_positions(account_type)
             self.__initialize_schedules(account_type)
+            self.__initialize_instalment(account_type)
 
     def __validate_properties(self, account_type: AccountType):
         for property_type in account_type.property_types:
@@ -170,6 +179,10 @@ class Account(BaseModel):
 
     def __initialize_schedules(self, account_type: AccountType):
         for schedule_type in account_type.schedule_types:
+            # skip if schedule already exists
+            if schedule_type.name in self.schedules:
+                continue
+
             schedule = Schedule(
                 start_date=self.evaluate(schedule_type.start_date_expression,
                                          {"accountType": account_type, "account": self,
@@ -197,6 +210,21 @@ class Account(BaseModel):
             for rule in transaction_type.position_rules:
                 if rule.position_type_name not in self.positions:
                     self.positions[rule.position_type_name] = Position()
+
+    def __initialize_instalment(self, account_type: AccountType):
+        instalment_type = account_type.instalment_type
+
+        # if no instalments create default one
+        if instalment_type and len(self.instalments.items()) == 0:
+            for date_value in self.schedules[instalment_type.schedule_name].get_all_dates(
+                    self.start_date + relativedelta(years=+50)):
+                self.instalments[date_value] = Instalment(amount=Decimal(0), is_fixed=False)
+
+    def apply_calculated_installment(self, amount: Decimal):
+        # set all instalments to calculated amount if fixed is false
+        for instalment in self.instalments.values():
+            if not instalment.is_fixed:
+                instalment.amount = amount
 
     def add_transaction(self, transaction: Transaction, transaction_type: TransactionType) -> dict[str, Decimal]:
         updated_positions: dict[str, Decimal] = {}
@@ -314,6 +342,15 @@ class AccountValuation:
         self.action_date = action_date
         self.trace = trace
 
+    def init_account(self):
+        # reset all positions to zero
+        for position in self.account.positions.values():
+            position.amount = Decimal(0)
+
+        self.account.transactions = []
+
+        self.trace_list = []
+
     def forecast(self, to_value_date: date, external_transactions: dict[date, List[ExternalTransaction]]):
         value_date = self.account.start_date
 
@@ -343,10 +380,10 @@ class AccountValuation:
         if self.account_type.instalment_type:
             if self.account_type.instalment_type.timing == ScheduledTransactionTiming.START_OF_DAY \
                     and value_date in self.account.instalments:
-                amount = self.account.instalments[value_date]
+                instalment = self.account.instalments[value_date]
                 transaction_type = self.account_type.get_transaction_type(
                     self.account_type.instalment_type.transaction_type)
-                self.__create_transaction(transaction_type, value_date, amount, True)
+                self.__create_transaction(transaction_type, value_date, instalment.amount, True)
 
     def __create_transaction_if_due(self, value_date: date, scheduled_transaction: ScheduledTransaction):
         schedule = self.account.schedules[scheduled_transaction.schedule_name]
@@ -368,7 +405,7 @@ class AccountValuation:
                 amount = Decimal(round(amount, 2))
 
         except Exception as e:
-            raise Exception(f'Error evaluating expression: {amount_expression} {e.args}') from e
+            raise Exception(f'Error calculating {transaction_type.name} on {value_date} expression : {amount_expression} {e.args}') from e
         else:
             if amount != Decimal(0):
                 self.__create_transaction(transaction_type, value_date, amount, True)
@@ -402,6 +439,29 @@ class AccountValuation:
         for scheduled_transaction in self.account_type.scheduled_transactions:
             if scheduled_transaction.timing == ScheduledTransactionTiming.END_OF_DAY:
                 self.__create_transaction_if_due(value_date, scheduled_transaction)
+
+    def solve_for_zero(self) -> Decimal:
+        solver = Solver(self)
+        return solver.solve()
+
+
+class Solver:
+    valuer: AccountValuation
+
+    def __init__(self, valuer: AccountValuation):
+        self.valuer = valuer
+
+    def calculate(self, value: Decimal) -> Decimal:
+        self.valuer.init_account()
+
+        self.valuer.account.apply_calculated_installment(value)
+        self.valuer.forecast(self.valuer.account.dates[self.valuer.account_type.instalment_type.solve_for_date], {})
+        result = self.valuer.account.positions[self.valuer.account_type.instalment_type.solve_for_zero_position].amount
+        print(f'instalment {value} -> {self.valuer.account_type.instalment_type.solve_for_zero_position} {result}')
+        return result
+
+    def solve(self) -> Decimal:
+        return scipy.optimize.brentq(self.calculate, Decimal(-100000000), Decimal(100000000), xtol=Decimal(0.01))
 
 
 class HolidayDate(BaseModel):
