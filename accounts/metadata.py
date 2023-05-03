@@ -51,6 +51,7 @@ class PositionType(BaseModel):
 class DateType(BaseModel):
     name: str
     label: str
+    required: bool = True
 
 
 class RateTier(BaseModel):
@@ -171,11 +172,7 @@ class ScheduleType(BaseModel):
     number_of_repeats_expression: str = None
     include_dates_expression: str = None
     exclude_dates_expression: str = None
-
-
-class TransactionDateAmount(BaseModel):
-    amount_expression: str
-    date: date
+    editable: bool = True
 
 
 class ScheduledTransaction(BaseModel):
@@ -183,7 +180,6 @@ class ScheduledTransaction(BaseModel):
     timing: ScheduledTransactionTiming
     generated_transaction_type: str
     amount_expression: str
-    amounts: List[TransactionDateAmount] = []
 
 
 class TriggeredTransaction(BaseModel):
