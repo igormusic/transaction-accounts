@@ -1,0 +1,82 @@
+{
+  "start_date": "2013-03-08",
+  "account_type_name": "Loan",
+  "positions": {
+    "accrued": {
+      "amount": 0
+    },
+    "interest_capitalized": {
+      "amount": 0
+    },
+    "principal": {
+      "amount": 0
+    },
+    "early_redemption_fee": {
+      "amount": 0
+    },
+    "conversion_interest": {
+      "amount": 0
+    }
+  },
+  "value_dated_properties": {},
+  "properties": {
+    "advance": 624000,
+    "payment": 0
+  },
+  "dates": {
+    "accrual_start": "2013-03-08",
+    "end_date": "2038-03-08"
+  },
+  "schedules": {
+    "interest": {
+      "start_date": "2013-03-31",
+      "end_type": "no_end",
+      "frequency": "monthly",
+      "interval": 1,
+      "adjustment": "no_adjustment",
+      "end_date": "2038-03-08",
+      "number_of_repeats": 0,
+      "include_dates": [
+        "2038-03-08"
+      ],
+      "exclude_dates": []
+    },
+    "redemption": {
+      "start_date": "2013-03-31",
+      "end_type": "no_end",
+      "frequency": "monthly",
+      "interval": 1,
+      "adjustment": "no_adjustment",
+      "end_date": "2038-03-08",
+      "number_of_repeats": 0,
+      "include_dates": [
+        "2038-03-08"
+      ],
+      "exclude_dates": []
+    },
+    "accrual": {
+      "start_date": "2013-03-08",
+      "end_type": "no_end",
+      "frequency": "daily",
+      "interval": 1,
+      "adjustment": "no_adjustment",
+      "end_date": null,
+      "number_of_repeats": 0,
+      "include_dates": [],
+      "exclude_dates": []
+    },
+    "advance": {
+      "start_date": "2013-03-08",
+      "end_type": "end_date",
+      "frequency": "daily",
+      "interval": 1,
+      "adjustment": "no_adjustment",
+      "end_date": "2013-03-08",
+      "number_of_repeats": 0,
+      "include_dates": [],
+      "exclude_dates": []
+    }
+  },
+  "transactions": [],
+  "instalments": {}
+}

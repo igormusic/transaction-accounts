@@ -2,6 +2,8 @@ from datetime import timedelta
 from itertools import groupby
 from typing import Mapping, Any
 from dateutil.relativedelta import *
+from pydantic import Field
+
 from accounts.metadata import *
 import scipy.optimize
 
@@ -49,7 +51,11 @@ class Schedule(BaseModel):
     number_of_repeats: int = 0
     include_dates: list[date] = []
     exclude_dates: list[date] = []
-    cached_dates: dict[date, date] = {}
+    cached_dates: dict[date, date] = Field(default_factory=dict,  exclude=True)
+
+    class Config:
+        # exclude the "cached_dates" field from JSON serialization
+        exclude = {"cached_dates"}
 
     def __is_simple_daily_schedule(self):
         return (self.frequency == ScheduleFrequency.DAILY and
@@ -154,7 +160,7 @@ class Account(BaseModel):
     dates: dict[str, date] = {}
     schedules: dict[str, Schedule] = {}
     transactions: list[Transaction] = []
-    instalments: dict[date, Instalment] = {}
+    instalments: dict[str, Instalment] = {}
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -216,7 +222,7 @@ class Account(BaseModel):
         if instalment_type and len(self.instalments.items()) == 0:
             for date_value in self.schedules[instalment_type.schedule_name].get_all_dates(
                     self.start_date + relativedelta(years=+50)):
-                self.instalments[date_value] = Instalment(amount=Decimal(0), is_fixed=False)
+                self.instalments[date_value.strftime("%Y-%m-%d")] = Instalment(amount=Decimal(0), is_fixed=False)
 
     def apply_calculated_installment(self, amount: Decimal):
         # set all instalments to calculated amount if fixed is false
@@ -375,10 +381,12 @@ class AccountValuation:
             if scheduled_transaction.timing == ScheduledTransactionTiming.START_OF_DAY:
                 self.__create_transaction_if_due(value_date, scheduled_transaction)
 
+        value_date_str = value_date.strftime('%Y-%m-%d')
+
         if self.account_type.instalment_type:
             if self.account_type.instalment_type.timing == ScheduledTransactionTiming.START_OF_DAY \
-                    and value_date in self.account.instalments:
-                instalment = self.account.instalments[value_date]
+                    and value_date_str in self.account.instalments:
+                instalment = self.account.instalments[value_date_str]
                 transaction_type = self.account_type.get_transaction_type(
                     self.account_type.instalment_type.transaction_type)
                 self.__create_transaction(transaction_type, value_date, instalment.amount, True)

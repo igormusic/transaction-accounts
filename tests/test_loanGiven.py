@@ -59,6 +59,9 @@ def create_loan_account(account_type: AccountType, start_date: date) -> (Account
                       schedules={"interest": interest_schedule,
                                  "redemption": redemption_schedule})
 
+    dict = account.dict()
+    json = account.json()
+
     return account, end_date
 
 
