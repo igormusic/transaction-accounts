@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='transaction-accounts',
-    version='0.1.0',
+    version='0.1.2',
     description='Create configuration for transactional accounts and implement account runtime',
     long_description='''
 Transaction Accounts
@@ -163,7 +163,8 @@ Given configuration, we can create an account:
     keywords=['TRANSACTION PROCESSING', 'LOANS', 'SAVINGS', 'ACCOUNTS', 'FINANCE', 'BANKING'],
     install_requires=[
         'python-dateutil',
-        'pydantic'
+        'pydantic',
+        'scipy'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

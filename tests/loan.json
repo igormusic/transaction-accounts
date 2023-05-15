@@ -1,0 +1,266 @@
+{
+  "name": "Loan",
+  "label": "Loan",
+  "transaction_types": [
+    {
+      "name": "interestAccrued",
+      "label": "Interest Accrued",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "accrued"
+        }
+      ],
+      "maximum_precision": true
+    },
+    {
+      "name": "interestCapitalized",
+      "label": "Interest Capitalized",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "interest_capitalized"
+        },
+        {
+          "operation": "debit",
+          "position_type_name": "accrued"
+        },
+        {
+          "operation": "credit",
+          "position_type_name": "principal"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "earlyRedemptionFee",
+      "label": "Early Redemption Fee",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "early_redemption_fee"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "conversionInterest",
+      "label": "Conversion Interest",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "conversion_interest"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "redemption",
+      "label": "Redemption",
+      "position_rules": [
+        {
+          "operation": "debit",
+          "position_type_name": "principal"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "advance",
+      "label": "Advance",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "principal"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "additionalAdvance",
+      "label": "Additional Advance",
+      "position_rules": [
+        {
+          "operation": "credit",
+          "position_type_name": "principal"
+        }
+      ],
+      "maximum_precision": false
+    },
+    {
+      "name": "interestPayment",
+      "label": "Interest Payment",
+      "position_rules": [
+        {
+          "operation": "debit",
+          "position_type_name": "accrued"
+        }
+      ],
+      "maximum_precision": false
+    }
+  ],
+  "position_types": [
+    {
+      "name": "conversion_interest",
+      "label": "Conversion Interest"
+    },
+    {
+      "name": "early_redemption_fee",
+      "label": "Early Redemption Fee"
+    },
+    {
+      "name": "accrued",
+      "label": "Interest Accrued"
+    },
+    {
+      "name": "interest_capitalized",
+      "label": "Interest Capitalized"
+    },
+    {
+      "name": "principal",
+      "label": "Principal"
+    }
+  ],
+  "date_types": [
+    {
+      "name": "accrual_start",
+      "label": "Accrual Start Date",
+      "required": true
+    },
+    {
+      "name": "end_date",
+      "label": "End Date",
+      "required": true
+    }
+  ],
+  "rate_types": {
+    "interest": {
+      "name": "interest",
+      "label": "Interest Rate",
+      "rate_tiers": {
+        "2000-01-01": [
+          {
+            "from_amount": 0,
+            "to_amount": 2000000,
+            "rate": 0.0304
+          },
+          {
+            "from_amount": 2000000,
+            "to_amount": 10000000,
+            "rate": 0.025
+          },
+          {
+            "from_amount": 10000000,
+            "to_amount": 1000000000000000019884624838656,
+            "rate": 0.02
+          }
+        ]
+      }
+    }
+  },
+  "triggered_transactions": [],
+  "schedule_types": [
+    {
+      "name": "accrual",
+      "label": "Accrual Schedule",
+      "frequency": "daily",
+      "end_type": "no_end",
+      "business_day_adjustment": "no_adjustment",
+      "interval_expression": "1",
+      "start_date_expression": "account.start_date",
+      "end_date_expression": null,
+      "number_of_repeats_expression": null,
+      "include_dates_expression": null,
+      "exclude_dates_expression": null,
+      "editable": true
+    },
+    {
+      "name": "interest",
+      "label": "Interest Schedule",
+      "frequency": "monthly",
+      "end_type": "no_end",
+      "business_day_adjustment": "no_adjustment",
+      "interval_expression": "1",
+      "start_date_expression": "account.start_date",
+      "end_date_expression": "account.end_date",
+      "number_of_repeats_expression": null,
+      "include_dates_expression": "account.end_date",
+      "exclude_dates_expression": null,
+      "editable": true
+    },
+    {
+      "name": "redemption",
+      "label": "Redemption Schedule",
+      "frequency": "monthly",
+      "end_type": "no_end",
+      "business_day_adjustment": "no_adjustment",
+      "interval_expression": "1",
+      "start_date_expression": "account.start_date + relativedelta(months=+1)",
+      "end_date_expression": "account.end_date",
+      "number_of_repeats_expression": null,
+      "include_dates_expression": "account.end_date",
+      "exclude_dates_expression": null,
+      "editable": true
+    },
+    {
+      "name": "advance",
+      "label": "Advance Schedule",
+      "frequency": "daily",
+      "end_type": "end_date",
+      "business_day_adjustment": "no_adjustment",
+      "interval_expression": "1",
+      "start_date_expression": "account.start_date",
+      "end_date_expression": "account.start_date",
+      "number_of_repeats_expression": null,
+      "include_dates_expression": null,
+      "exclude_dates_expression": null,
+      "editable": true
+    }
+  ],
+  "property_types": [
+    {
+      "name": "advance",
+      "label": "Advance Amount",
+      "data_type": "decimal",
+      "required": true,
+      "value_dated": false
+    },
+    {
+      "name": "payment",
+      "label": "Payment Amount",
+      "data_type": "decimal",
+      "required": true,
+      "value_dated": false
+    }
+  ],
+  "scheduled_transactions": [
+    {
+      "schedule_name": "accrual",
+      "timing": "end_of_day",
+      "generated_transaction_type": "interestAccrued",
+      "amount_expression": "account.principal * accountType.interest.get_rate(value_date, account.principal) / Decimal(365)"
+    },
+    {
+      "schedule_name": "interest",
+      "timing": "end_of_day",
+      "generated_transaction_type": "interestCapitalized",
+      "amount_expression": "account.accrued"
+    },
+    {
+      "schedule_name": "advance",
+      "timing": "start_of_day",
+      "generated_transaction_type": "advance",
+      "amount_expression": "account.advance"
+    }
+  ],
+  "instalment_type": {
+    "name": "payments",
+    "label": "Payments",
+    "timing": "start_of_day",
+    "schedule_name": "redemption",
+    "transaction_type": "redemption",
+    "property_name": "payment",
+    "solve_for_zero_position": "principal",
+    "solve_for_date": "end_date"
+  }
+}

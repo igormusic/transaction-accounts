@@ -85,6 +85,19 @@ class TestConfiguration(unittest.TestCase):
 
         self.assertEqual(3, len(account.positions.keys()))
 
+    def test_serialize_to_json(self):
+        account_type = create_loan_given_account()
+
+        json = account_type.json()
+
+        self.assertIsNotNone(json)
+
+        account_type2 = AccountType.parse_raw(json)
+
+        json2 = account_type2.json()
+
+        self.assertEqual(json, json2)
+
     def test_mandatory_properties(self):
         self.assertRaises(ValueError, create_without_mandatory_properties)
 
