@@ -12,7 +12,7 @@ def evaluate_account(account_type: AccountType, monthly_fee: Decimal, deposit: D
                       properties={"monthlyFee": PropertyValue(value={start_date: monthly_fee}),
                                   "withholdingTax": PropertyValue(value={start_date: withholding_tax})})
 
-    valuation = AccountValuation(account, account_type, date(2020, 1, 1))
+    valuation = AccountValuation(account= account, account_type= account_type, action_date= date(2020, 1, 1))
     deposit_transaction_type = account_type.get_transaction_type("deposit")
     external_transactions = group_by_date([
         ExternalTransaction(transaction_type_name=deposit_transaction_type.name,
@@ -32,7 +32,7 @@ def evaluate_account_with_withholding_tax_change(account_type: AccountType, mont
                                   "withholdingTax": PropertyValue(value={start_date: withholding_tax1,
                                                                          tax_change_date: withholding_tax2})})
 
-    valuation = AccountValuation(account, account_type, date(2020, 1, 1))
+    valuation = AccountValuation(account=account, account_type=account_type, action_date=date(2020, 1, 1))
     deposit_transaction_type = account_type.get_transaction_type("deposit")
     external_transactions = group_by_date([
         ExternalTransaction(transaction_type_name=deposit_transaction_type.name,

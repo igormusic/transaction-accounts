@@ -109,7 +109,7 @@ class TestConfiguration(unittest.TestCase):
 
         account, end_date = create_loan_account(account_type, date(2013, 3, 8))
 
-        valuation = AccountValuation(account, account_type, end_date, True)
+        valuation = AccountValuation(account=account, account_type=account_type, action_date=end_date, trace=True)
 
         valuation.forecast(end_date + relativedelta(days=1), [])
 
@@ -123,7 +123,7 @@ class TestConfiguration(unittest.TestCase):
 
         account, end_date = create_loan_account(account_type, date(2013, 3, 8))
 
-        valuation = AccountValuation(account, account_type, end_date, False)
+        valuation = AccountValuation(account=account, account_type=account_type, action_date=end_date, trace=False)
 
         payment = valuation.solve_instalment()
 

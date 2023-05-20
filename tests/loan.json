@@ -192,7 +192,7 @@
       "name": "redemption",
       "label": "Redemption Schedule",
       "frequency": "monthly",
-      "end_type": "no_end",
+      "end_type": "end_date",
       "business_day_adjustment": "no_adjustment",
       "interval_expression": "1",
       "start_date_expression": "account.start_date + relativedelta(months=+1)",

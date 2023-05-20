@@ -51,7 +51,7 @@ class Schedule(BaseModel):
     number_of_repeats: int = 0
     include_dates: list[date] = []
     exclude_dates: list[date] = []
-    cached_dates: dict[date, date] = Field(default_factory=dict,  exclude=True)
+    cached_dates: dict[date, date] = Field(default_factory=dict, exclude=True)
 
     class Config:
         # exclude the "cached_dates" field from JSON serialization
@@ -321,30 +321,20 @@ def get_difference(new_grouped, original_grouped):
                 new=new_transactions)
 
 
-class TransactionTrace:
+class TransactionTrace(BaseModel):
     transaction: Transaction
     positions: Dict[str, Decimal]
-
-    def __init__(self, transaction: Transaction, positions: Dict[str, Decimal]):
-        self.transaction = transaction
-        self.positions = positions
 
     def __str__(self):
         return f" {self.transaction.value_date} {self.transaction.transaction_type} {self.transaction.amount} {self.positions}"
 
 
-class AccountValuation:
+class AccountValuation(BaseModel):
     account: Account
     account_type: AccountType
     action_date: date
-    trace: bool
+    trace: bool = False
     trace_list: List[TransactionTrace] = []
-
-    def __init__(self, account: Account, account_type: AccountType, action_date: date, trace: bool = False):
-        self.account = account
-        self.account_type = account_type
-        self.action_date = action_date
-        self.trace = trace
 
     def init_account(self):
         # reset all positions to zero
@@ -427,7 +417,7 @@ class AccountValuation:
         positions = self.account.add_transaction(transaction, transaction_type)
 
         if self.trace:
-            self.trace_list.append(TransactionTrace(transaction, positions))
+            self.trace_list.append(TransactionTrace(transaction=transaction, positions=positions))
 
         triggered_transaction = self.account_type.get_trigger_transaction(transaction_type.name)
 
