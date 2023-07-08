@@ -168,10 +168,10 @@ class ScheduleType(BaseModel):
     business_day_adjustment: BusinessDayAdjustment
     interval_expression: str
     start_date_expression: str
-    end_date_expression: str = None
-    number_of_repeats_expression: str = None
-    include_dates_expression: str = None
-    exclude_dates_expression: str = None
+    end_date_expression: Optional[str] = None
+    number_of_repeats_expression: Optional[str] = None
+    include_dates_expression: Optional[str] = None
+    exclude_dates_expression: Optional[str] = None
     editable: bool = True
 
 
